@@ -756,9 +756,9 @@
 
       /*
        * Önemli:
-       * - Listeye yalnızca doğrulanmış, benzersiz YouTube video kimlikleri konuldu.
-       * - YouTube Data API anahtarı kullanılmadığı için arama, bu listedeki tüm videoları tarar.
-       * - Yeni video eklerken id alanının benzersiz ve geçerli olduğundan emin olun.
+       * YouTube Data API anahtarı istemeden arama yapmak için açık Piped/Invidious
+       * sunucuları denenir. Bu servisler bağımsız topluluk sunucuları olduğu için
+       * aşağıdaki kod birden fazla sunucuya geçiş yapar ve yerel yedeği korur.
        */
       const videos = [
         {
@@ -871,6 +871,37 @@
         },
       ];
 
+      const FALLBACK_API_SERVERS = [
+        "https://pipedapi.kavin.rocks",
+        "https://pipedapi.reallyaweso.me",
+        "https://pipedapi.leptons.xyz",
+        "https://pipedapi.drgns.space",
+      ];
+
+      const FALLBACK_INVIDIOUS_SERVERS = [
+        "https://inv.nadeko.net",
+        "https://invidious.nerdvpn.de",
+        "https://yt.chocolatemoo53.com",
+      ];
+
+      const HOME_SEARCHES = [
+        "Türkçe müzik",
+        "Türkiye gündem",
+        "Türkçe eğlence",
+        "teknoloji inceleme",
+        "futbol Türkiye",
+        "yemek tarifi",
+        "belgesel Türkçe",
+        "oyun Türkçe",
+      ];
+
+      const originalVideos = [...videos];
+      const apiState = {
+        loading: false,
+        lastError: "",
+        requestId: 0,
+      };
+
       const STORAGE_KEYS = {
         favorites: "youtune-favorites-v2",
         history: "youtune-history-v2",
@@ -963,26 +994,196 @@
         });
       }
 
+      function createVideoFromPiped(item, category) {
+        const id = String(item.url || "").match(/[?&]v=([^&]+)/)?.[1];
+        if (!id || !item.title) return null;
+        return {
+          id,
+          title: item.title,
+          channel: item.uploaderName || "YouTube kanalı",
+          channelKey: normalizeText(item.uploaderName || "youtube").replace(/\s+/g, ""),
+          initials: (item.uploaderName || "Y").slice(0, 1).toLocaleUpperCase("tr-TR"),
+          views: Number(item.views || 0).toLocaleString("tr-TR"),
+          age: item.uploadedDate || "Yeni",
+          duration: Number(item.duration || 0) ? formatDuration(item.duration) : "—",
+          category,
+          thumbnail: item.thumbnail || `https://i.ytimg.com/vi/${id}/hqdefault.jpg`,
+          avatarBackground: "linear-gradient(135deg, #ec4899, #4f46e5)",
+        };
+      }
+
+      function createVideoFromInvidious(item, category) {
+        if (!item.videoId || !item.title) return null;
+        const thumbnail =
+          item.videoThumbnails?.find((image) => image.quality === "medium")?.url ||
+          `https://i.ytimg.com/vi/${item.videoId}/hqdefault.jpg`;
+        return {
+          id: item.videoId,
+          title: item.title,
+          channel: item.author || "YouTube kanalı",
+          channelKey: normalizeText(item.author || "youtube").replace(/\s+/g, ""),
+          initials: (item.author || "Y").slice(0, 1).toLocaleUpperCase("tr-TR"),
+          views: Number(item.viewCount || 0).toLocaleString("tr-TR"),
+          age: item.publishedText || "Yeni",
+          duration: Number(item.lengthSeconds || 0) ? formatDuration(item.lengthSeconds) : "—",
+          category,
+          thumbnail,
+          avatarBackground: "linear-gradient(135deg, #ec4899, #4f46e5)",
+        };
+      }
+
+      function formatDuration(seconds) {
+        const total = Math.max(0, Number(seconds) || 0);
+        const hours = Math.floor(total / 3600);
+        const minutes = Math.floor((total % 3600) / 60);
+        const secs = Math.floor(total % 60);
+        return hours
+          ? `${hours}:${String(minutes).padStart(2, "0")}:${String(secs).padStart(2, "0")}`
+          : `${minutes}:${String(secs).padStart(2, "0")}`;
+      }
+
+      async function fetchWithTimeout(url, options = {}, timeout = 9000) {
+        const controller = new AbortController();
+        const timer = window.setTimeout(() => controller.abort(), timeout);
+        try {
+          const response = await fetch(url, {
+            ...options,
+            signal: controller.signal,
+            headers: { Accept: "application/json", ...(options.headers || {}) },
+          });
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          return await response.json();
+        } finally {
+          window.clearTimeout(timer);
+        }
+      }
+
+      async function searchPiped(query, category, page = 1) {
+        for (const server of FALLBACK_API_SERVERS) {
+          try {
+            const data = await fetchWithTimeout(
+              `${server}/search?q=${encodeURIComponent(query)}&filter=videos&page=${page}`,
+            );
+            const results = (data.items || data).map((item) =>
+              createVideoFromPiped(item, category),
+            );
+            const valid = results.filter(Boolean);
+            if (valid.length) return valid;
+          } catch {
+            // Bir açık sunucu cevap vermezse sıradaki denenir.
+          }
+        }
+        return [];
+      }
+
+      async function searchInvidious(query, category, page = 1) {
+        for (const server of FALLBACK_INVIDIOUS_SERVERS) {
+          try {
+            const data = await fetchWithTimeout(
+              `${server}/api/v1/search?q=${encodeURIComponent(query)}&type=video&page=${page}`,
+            );
+            const valid = data.map((item) => createVideoFromInvidious(item, category)).filter(Boolean);
+            if (valid.length) return valid;
+          } catch {
+            // Bir açık sunucu cevap vermezse sıradaki denenir.
+          }
+        }
+        return [];
+      }
+
+      function uniqueVideos(list) {
+        const seen = new Set();
+        return list.filter((video) => {
+          if (!video || seen.has(video.id)) return false;
+          seen.add(video.id);
+          return true;
+        });
+      }
+
+      function shuffle(list) {
+        return [...list].sort(() => Math.random() - 0.5);
+      }
+
+      async function loadFromOpenSearch(query, category = "YouTube", page = 1) {
+        const piped = await searchPiped(query, category, page);
+        if (piped.length) return uniqueVideos(piped);
+        return uniqueVideos(await searchInvidious(query, category, page));
+      }
+
+      async function loadHomeFeed() {
+        apiState.loading = true;
+        apiState.lastError = "";
+        elements.pageTitle.textContent = "Ana Sayfa";
+        elements.resultCount.textContent = "YouTube videoları yükleniyor…";
+
+        // Her yenilemede arama konuları karıştırıldığı için ana sayfa değişir.
+        const selectedSearches = shuffle(HOME_SEARCHES);
+        const batches = await Promise.all(
+          selectedSearches.flatMap((query, index) => [
+            loadFromOpenSearch(query, "Genel", 1),
+            index < 4 ? loadFromOpenSearch(query, "Genel", 2) : Promise.resolve([]),
+          ]),
+        );
+        const liveVideos = uniqueVideos(batches.flat());
+
+        if (liveVideos.length) {
+          videos.splice(0, videos.length, ...shuffle(liveVideos));
+          apiState.lastError = liveVideos.length < 100
+            ? "Açık arama sunucusu 100'den az sonuç döndürdü."
+            : "";
+        } else {
+          videos.splice(0, videos.length, ...shuffle(originalVideos));
+          apiState.lastError = "Canlı arama sunucularına ulaşılamadı; yedek liste gösteriliyor.";
+        }
+
+        apiState.loading = false;
+        renderCategories();
+        renderVideos();
+        if (apiState.lastError) showToast(apiState.lastError);
+      }
+
+      async function searchLive(query) {
+        const requestId = ++apiState.requestId;
+        apiState.loading = true;
+        elements.resultCount.textContent = "YouTube aranıyor…";
+        elements.emptyState.style.display = "none";
+        elements.grid.style.display = "grid";
+
+        const liveVideos = await loadFromOpenSearch(query);
+        if (requestId !== apiState.requestId) return;
+
+        if (liveVideos.length) {
+          videos.splice(0, videos.length, ...liveVideos);
+          state.activeCategory = "Tümü";
+          renderCategories();
+          renderVideos();
+        } else {
+          videos.splice(0, videos.length, ...originalVideos);
+          renderCategories();
+          renderVideos();
+          showToast("YouTube araması şu an kullanılamıyor; yedek liste gösteriliyor.");
+        }
+        apiState.loading = false;
+      }
+
       function getFallbackThumbnail(video) {
-        const title = encodeURIComponent(video.title.slice(0, 38));
-        return (
-          "data:image/svg+xml;charset=UTF-8," +
+        const title = video.title.slice(0, 38).replace(/[<>&"]/g, "");
+        const svg =
           `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360">` +
           `<defs><linearGradient id="g" x1="0" x2="1"><stop stop-color="#211c38"/><stop offset="1" stop-color="#8f1d42"/></linearGradient></defs>` +
           `<rect width="640" height="360" fill="url(#g)"/><circle cx="530" cy="90" r="120" fill="#ffffff12"/>` +
           `<text x="32" y="272" fill="#fff" font-family="Arial,sans-serif" font-size="25" font-weight="700">${title}</text>` +
-          `<text x="32" y="310" fill="#ffffffaa" font-family="Arial,sans-serif" font-size="16">YouTune Türkiye</text></svg>`
-        );
+          `<text x="32" y="310" fill="#ffffffaa" font-family="Arial,sans-serif" font-size="16">YouTune Türkiye</text></svg>`;
+        return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
       }
 
       function getAvatarFallback(video) {
-        return (
-          "data:image/svg+xml;charset=UTF-8," +
+        const svg =
           `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">` +
           `<defs><linearGradient id="a" x1="0" x2="1" y1="0" y2="1"><stop stop-color="#ff2d55"/><stop offset="1" stop-color="#6448d8"/></linearGradient></defs>` +
           `<circle cx="50" cy="50" r="50" fill="url(#a)"/>` +
-          `<text x="50" y="59" text-anchor="middle" fill="#fff" font-family="Arial,sans-serif" font-size="38" font-weight="700">${video.initials}</text></svg>`
-        );
+          `<text x="50" y="59" text-anchor="middle" fill="#fff" font-family="Arial,sans-serif" font-size="38" font-weight="700">${video.initials}</text></svg>`;
+        return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
       }
 
       function renderCategories() {
@@ -1024,7 +1225,7 @@
                 <div class="thumbnail-wrap">
                   <img
                     class="thumbnail"
-                    src="https://i.ytimg.com/vi/${video.id}/hqdefault.jpg"
+                    src="${video.thumbnail || `https://i.ytimg.com/vi/${video.id}/hqdefault.jpg`}"
                     alt="${video.title}"
                     loading="lazy"
                     data-fallback="${getFallbackThumbnail(video)}"
@@ -1146,12 +1347,15 @@
         }, 2600);
       }
 
+      let searchTimer = 0;
+
       elements.searchForm.addEventListener("submit", (event) => {
         event.preventDefault();
         state.searchTerm = elements.searchInput.value;
         state.mode = "home";
         updateTitle();
-        renderVideos();
+        if (state.searchTerm.trim()) searchLive(state.searchTerm.trim());
+        else loadHomeFeed();
       });
 
       // Arama tuşuna basmayı beklemeden sonuçları güncelle.
@@ -1159,7 +1363,12 @@
         state.searchTerm = elements.searchInput.value;
         state.mode = "home";
         updateTitle();
-        renderVideos();
+        window.clearTimeout(searchTimer);
+        if (!state.searchTerm.trim()) {
+          renderVideos();
+          return;
+        }
+        searchTimer = window.setTimeout(() => searchLive(state.searchTerm.trim()), 450);
       });
 
       elements.categories.addEventListener("click", (event) => {
@@ -1208,7 +1417,7 @@
         state.searchTerm = "";
         elements.searchInput.value = "";
         updateTitle();
-        renderVideos();
+        loadHomeFeed();
       });
 
       document.querySelector("#closeModalButton").addEventListener("click", closeVideo);
@@ -1255,6 +1464,7 @@
       // Sayfa açılışında kartların tamamını göster.
       renderCategories();
       renderVideos();
+      loadHomeFeed();
     </script>
   </body>
 </html>
