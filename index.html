@@ -350,24 +350,18 @@
     <script>
       "use strict";
 
-      // Gerçek projede bu dizi, sunucudan veya YouTube Data API'den gelen sonuçlarla doldurulabilir.
-      const videos = [
-        { id: "rNFsWlJm09k", title: "Yeni Çıkan Türkçe Şarkılar | 22 Ağustos 2026", channel: "Adres Müzik", views: "4,8 B görüntüleme", age: "1 gün önce", duration: "8:34", category: "Müzik" },
-        { id: "-FQ_-OMgzMY", title: "Yeni Çıkan Türkçe Şarkılar | 15 Ağustos 2026", channel: "Adres Müzik", views: "39 B görüntüleme", age: "8 gün önce", duration: "8:13", category: "Müzik" },
+      // Başlangıç videoları
+      let videos = [
+        { id: "rNFsWlJm09k", title: "Yeni Çıkan Türkçe Şarkılar", channel: "Adres Müzik", views: "4,8 B görüntüleme", age: "1 gün önce", duration: "8:34", category: "Müzik" },
+        { id: "-FQ_-OMgzMY", title: "Yeni Çıkan Türkçe Şarkılar 2", channel: "Adres Müzik", views: "39 B görüntüleme", age: "8 gün önce", duration: "8:13", category: "Müzik" },
         { id: "HZObP-SbHEM", title: "Blippi ile Dinozorları Keşfet! | Blippi Türkçe", channel: "Blippi Türkçe", views: "10 Mn görüntüleme", age: "3 yıl önce", duration: "7:03", category: "Eğitim" },
-        { id: "EwJgpDYwFhk", title: "En Komik Video Derlemeleri #1", channel: "Çılgın Türkler", views: "77 B görüntüleme", age: "2 yıl önce", duration: "7:05", category: "Komedi" },
-        { id: "XZK42t0g3-c", title: "2000'ler Türkçe Pop | HD Video Klip", channel: "Dj Burak Kilincoglu", views: "4,2 Mn görüntüleme", age: "1 yıl önce", duration: "20:34", category: "Müzik" },
-        { id: "PPWl1FK2BRQ", title: "Çağla - Saz mı Caz mı?", channel: "netd müzik", views: "366 Mn görüntüleme", age: "8 yıl önce", duration: "3:26", category: "Müzik" },
-        { id: "35X2Km-5j00", title: "Mavi Vatan'ın renk sırrı: TCG Anadolu neden gri?", channel: "GZT", views: "42 B görüntüleme", age: "2 gün önce", duration: "0:50", category: "Haber" },
-        { id: "K_KpomHNcc0", title: "Türk-İsrail Savaşında Kürtler Hangi Tarafta?", channel: "İbrahim Halil Baran", views: "52 B görüntüleme", age: "2 gün önce", duration: "1:09:12", category: "Haber" },
-        { id: "F64PRO93e3w", title: "Darbe olacak sanıp cumhurbaşkanı Erdoğan'ı tehdit etmiş!", channel: "TVNET", views: "749 B görüntüleme", age: "4 gün önce", duration: "0:42", category: "Haber" },
-        { id: "LdghWhfJPUA", title: "1 Dolar vs. 500.000 Dolarlık Deneyimler!", channel: "MrBeassttTurkiye", views: "13 B görüntüleme", age: "1 yıl önce", duration: "17:34", category: "Eğlence" }
+        { id: "EwJgpDYwFhk", title: "En Komik Video Derlemeleri #1", channel: "Çılgın Türkler", views: "77 B görüntüleme", age: "2 yıl önce", duration: "7:05", category: "Komedi" }
       ];
-      const categories = ["Tümü", ...new Set(videos.map((video) => video.category))];
+
+      const categories = ["Tümü", "Müzik", "Eğitim", "Komedi", "Haber", "Eğlence"];
       let activeCategory = "Tümü";
       let activeVideo = null;
       let mode = "home";
-      let searchTerm = "";
 
       const grid = document.querySelector("#videoGrid");
       const emptyState = document.querySelector("#emptyState");
@@ -384,18 +378,69 @@
       }
       function setStored(key, value) {
         try { localStorage.setItem(key, JSON.stringify(value)); }
-        catch (_) { /* Tarayıcı depolaması kapalıysa uygulama yine çalışır. */ }
+        catch (_) {}
       }
       function isFavorite(id) { return getStored("youtune-favorites").includes(id); }
 
+      // Süre dönüştürücü (Saniye -> Dk:Sn)
+      function formatDuration(seconds) {
+        if (!seconds) return "Live";
+        const mins = Math.floor(seconds / 60);
+        const secs = seconds % 60;
+        return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+      }
+
+      // Ücretsiz ve API Key gerektirmeyen Invidious Servisi ile Arama
+      async function searchYouTube(query) {
+        grid.innerHTML = "<p style='grid-column: 1/-1; text-align: center;'>Aranıyor, lütfen bekleyin...</p>";
+        try {
+          // Açık kaynak Invidious API uç noktası
+          const response = await fetch(`https://api.invidious.io/instances/1/api/v1/search?q=${encodeURIComponent(query)}&type=video`);
+          
+          if (!response.ok) throw new Error("Arama başarısız.");
+
+          const data = await response.json();
+          
+          // Gelen YouTube verisini web sitemize uygun formata çeviriyoruz
+          videos = data.map(item => ({
+            id: item.videoId,
+            title: item.title,
+            channel: item.author,
+            views: `${item.viewCount ? item.viewCount.toLocaleString('tr-TR') : 0} görüntüleme`,
+            age: item.publishedText || "Yakın zamanda",
+            duration: formatDuration(item.lengthSeconds),
+            category: "Genel"
+          }));
+
+          renderVideos();
+        } catch (error) {
+          console.error("Arama hatası:", error);
+          // Alternatif/Yedek API denemesi (Piped API)
+          try {
+            const fallbackResponse = await fetch(`https://pipedapi.kavin.rocks/search?q=${encodeURIComponent(query)}&filter=videos`);
+            const fallbackData = await fallbackResponse.json();
+            
+            videos = fallbackData.items.map(item => ({
+              id: item.url.replace("/watch?v=", ""),
+              title: item.title,
+              channel: item.uploaderName,
+              views: `${item.views ? item.views.toLocaleString('tr-TR') : 0} görüntüleme`,
+              age: item.uploadedDate || "Yakın zamanda",
+              duration: formatDuration(item.duration),
+              category: "Genel"
+            }));
+            renderVideos();
+          } catch (err) {
+            grid.innerHTML = "<p style='grid-column: 1/-1; text-align: center; color: var(--accent);'>Sonuçlar alınamadı. Lütfen tekrar deneyin.</p>";
+          }
+        }
+      }
+
       function filteredVideos() {
-        const term = searchTerm.trim().toLocaleLowerCase("tr-TR");
         return videos.filter((video) => {
           const categoryMatch = activeCategory === "Tümü" || video.category === activeCategory;
-          const text = `${video.title} ${video.channel} ${video.category}`.toLocaleLowerCase("tr-TR");
-          const searchMatch = !term || text.includes(term);
           const modeMatch = mode === "home" || (mode === "favorites" && isFavorite(video.id)) || getStored("youtune-history").includes(video.id);
-          return categoryMatch && searchMatch && modeMatch;
+          return categoryMatch && modeMatch;
         });
       }
 
@@ -414,13 +459,12 @@
         grid.innerHTML = visibleVideos.map((video) => `
           <article class="video-card" tabindex="0" role="button" data-video-id="${video.id}" aria-label="${video.title}">
             <div class="thumbnail-wrap">
-              <img src="https://i.ytimg.com/vi/${video.id}/hq720.jpg" alt="" loading="lazy"
-                onerror="this.src='https://i.ytimg.com/vi/${video.id}/hqdefault.jpg'" />
+              <img src="https://i.ytimg.com/vi/${video.id}/hqdefault.jpg" alt="" loading="lazy" />
               <span class="play-overlay">▶</span>
               <span class="duration">${video.duration}</span>
             </div>
             <div class="video-info">
-              <div class="channel-avatar">${video.channel.charAt(0)}</div>
+              <div class="channel-avatar">${video.channel ? video.channel.charAt(0) : "Y"}</div>
               <div class="video-copy">
                 <h2 class="video-title">${video.title}</h2>
                 <p class="video-meta">${video.channel}<br>${video.views} • ${video.age}</p>
@@ -440,7 +484,7 @@
         document.querySelector("#youtubeButton").href = `https://www.youtube.com/watch?v=${id}`;
         favoriteButton.textContent = isFavorite(id) ? "♥ Favorilerden çıkar" : "♡ Favorile";
         favoriteButton.classList.toggle("selected", isFavorite(id));
-        // Video sitenin içinde açılır; dosya senin sunucuna indirilmez.
+        
         playerFrame.innerHTML = `<iframe src="https://www.youtube-nocookie.com/embed/${id}?autoplay=1&rel=0"
           title="${activeVideo.title}" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe>`;
         modal.classList.add("open");
@@ -462,13 +506,17 @@
         renderVideos();
       }
 
+      // Enter'a basıldığında veya buton tıklandığında çalışan arama dinleyicisi
       document.querySelector("#searchForm").addEventListener("submit", (event) => {
         event.preventDefault();
-        searchTerm = searchInput.value;
-        mode = "home";
-        document.querySelector("#pageTitle").textContent = searchTerm ? `"${searchTerm}" sonuçları` : "Ana Sayfa";
-        renderVideos();
+        const query = searchInput.value.trim();
+        if (query) {
+          mode = "home";
+          document.querySelector("#pageTitle").textContent = `"${query}" sonuçları`;
+          searchYouTube(query);
+        }
       });
+
       categoriesEl.addEventListener("click", (event) => {
         const button = event.target.closest("[data-category]");
         if (!button) return;
@@ -476,18 +524,22 @@
         renderCategories();
         renderVideos();
       });
+
       grid.addEventListener("click", (event) => {
         const card = event.target.closest("[data-video-id]");
         if (card) openVideo(card.dataset.videoId);
       });
+
       grid.addEventListener("keydown", (event) => {
         if (event.key !== "Enter" && event.key !== " ") return;
         const card = event.target.closest("[data-video-id]");
         if (card) { event.preventDefault(); openVideo(card.dataset.videoId); }
       });
+
       document.querySelector("#closeModal").addEventListener("click", closeVideo);
       modal.addEventListener("click", (event) => { if (event.target === modal) closeVideo(); });
       document.addEventListener("keydown", (event) => { if (event.key === "Escape" && modal.classList.contains("open")) closeVideo(); });
+
       favoriteButton.addEventListener("click", () => {
         if (!activeVideo) return;
         const favorites = getStored("youtune-favorites");
@@ -497,12 +549,14 @@
         favoriteButton.classList.toggle("selected", isFavorite(activeVideo.id));
         if (mode === "favorites") renderVideos();
       });
+
       document.querySelector("#shareButton").addEventListener("click", async () => {
         if (!activeVideo) return;
         const url = `https://www.youtube.com/watch?v=${activeVideo.id}`;
         if (navigator.share) await navigator.share({ title: activeVideo.title, url });
         else { await navigator.clipboard?.writeText(url); alert("YouTube bağlantısı kopyalandı."); }
       });
+
       document.querySelector("#homeButton").addEventListener("click", () => setMode("home"));
       document.querySelector("#favoritesButton").addEventListener("click", () => setMode("favorites"));
       document.querySelector("#historyButton").addEventListener("click", () => setMode("history"));
