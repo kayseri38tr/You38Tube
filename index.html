@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="YouTube videolarını aramak, listelemek ve sayfa içinde reklamsız izlemek için tek dosyalık uygulama." />
+    <meta name="description" content="YouTube videolarını aramak, listelemek ve sayfa içinde izlemek için tek dosyalık örnek." />
     <title>YouTune Türkiye</title>
     <style>
       :root {
@@ -52,7 +52,6 @@
         font-size: 19px;
         font-weight: 800;
         letter-spacing: -0.5px;
-        cursor: pointer;
       }
       .brand-mark {
         display: grid;
@@ -190,7 +189,6 @@
         color: white;
         background: linear-gradient(135deg, #ef4444, #7f1d1d);
         font-weight: 800;
-        overflow: hidden;
       }
       .video-copy { min-width: 0; }
       .video-title {
@@ -205,13 +203,13 @@
         -webkit-line-clamp: 2;
       }
       .video-meta { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.45; }
-      .empty, .loading-state {
+      .empty {
         display: none;
         padding: 90px 20px;
         color: var(--muted);
         text-align: center;
       }
-      .empty strong, .loading-state strong { display: block; margin-bottom: 8px; color: var(--text); font-size: 20px; }
+      .empty strong { display: block; margin-bottom: 8px; color: var(--text); font-size: 20px; }
 
       .bottom-nav {
         position: fixed;
@@ -237,7 +235,7 @@
       .nav-button span { display: block; margin-bottom: 2px; font-size: 20px; }
       .nav-button.active, .nav-button:hover { color: var(--accent); }
 
-      /* MODAL VE TELEFON ÇERÇEVESİ STİLLERİ */
+      /* --- MODAL VE ANDROID TELEFON ÇERÇEVESİ STİLLERİ --- */
       .modal {
         position: fixed;
         inset: 0;
@@ -251,6 +249,7 @@
       }
       .modal.open { display: flex; }
 
+      /* Android Cihaz Gövdesi */
       .android-device {
         width: min(380px, 100%);
         height: min(720px, 90vh);
@@ -264,6 +263,7 @@
         overflow: hidden;
       }
 
+      /* Android Kamera / Notch Noktası */
       .android-device::before {
         content: '';
         position: absolute;
@@ -284,7 +284,7 @@
         height: 100%;
         width: 100%;
         background: var(--surface);
-        padding-top: 28px;
+        padding-top: 28px; /* Kamera çentiği için üst boşluk */
       }
 
       .player-top {
@@ -369,9 +369,9 @@
   <body>
     <div class="app-shell">
       <header>
-        <div class="brand" id="brandBtn"><span class="brand-mark">▶</span><span>YouTune Türkiye</span></div>
+        <div class="brand"><span class="brand-mark">▶</span><span>YouTune Türkiye</span></div>
         <form class="search-form" id="searchForm" role="search">
-          <input id="searchInput" type="search" placeholder="Reklamsız video ara..." aria-label="Video ara" />
+          <input id="searchInput" type="search" placeholder="Video, kanal veya konu ara..." aria-label="Video ara" />
           <button type="submit" aria-label="Ara">⌕</button>
         </form>
         <button class="header-action" type="button" aria-label="Bildirimler">♧</button>
@@ -380,24 +380,17 @@
       <main>
         <section class="hero">
           <div>
-            <h1 id="pageTitle">Trend Videolar</h1>
-            <p>Aktif Piped & Invidious sunucu havuzu ile reklamsız canlı izleme.</p>
+            <h1 id="pageTitle">Ana Sayfa</h1>
+            <p>Türkçe videoları keşfet, ara ve sayfadan ayrılmadan izle.</p>
           </div>
           <div class="result-count" id="resultCount"></div>
         </section>
 
         <nav class="categories" id="categories" aria-label="Video kategorileri"></nav>
-        
-        <section class="loading-state" id="loadingState">
-          <strong>Videolar yükleniyor...</strong>
-          Lütfen bekleyin, canlı API sunucularından veri çekiliyor.
-        </section>
-
         <section class="video-grid" id="videoGrid" aria-live="polite"></section>
-        
         <section class="empty" id="emptyState">
           <strong>Video bulunamadı</strong>
-          Arama kelimesini değiştirebilir veya farklı bir kategori seçebilirsiniz.
+          Arama kelimesini veya kategori filtresini değiştirip tekrar deneyebilirsin.
         </section>
       </main>
 
@@ -408,12 +401,12 @@
       </nav>
     </div>
 
-    <!-- MODAL VİDEO OYNATICI -->
+    <!-- MODAL VİDEO OYNATICI (ANDROID TELEFON FORMUNDA) -->
     <div class="modal" id="videoModal" role="dialog" aria-modal="true" aria-labelledby="playerTitle">
       <div class="android-device">
         <div class="player-panel">
           <div class="player-top">
-            <span class="android-status-bar">Player (Reklamsız)</span>
+            <span class="android-status-bar">Android Player</span>
             <button class="close-button" id="closeModal" type="button" aria-label="Kapat">×</button>
           </div>
           <div class="player-frame" id="playerFrame"></div>
@@ -433,39 +426,27 @@
     <script>
       "use strict";
 
-      // Aktif Invidious ve Piped Sunucu Havuzu (Ağ Korumalı Fallback)
-      const INVIDIOUS_INSTANCES = [
-        "https://inv.nadeko.net",
-        "https://invidious.nerdvpn.de",
-        "https://yt.artemislena.eu",
-        "https://invidious.privacydev.net",
-        "https://invidious.private.coffee"
+      const videos = [
+        { id: "rNFsWlJm09k", title: "Yeni Çıkan Türkçe Şarkılar | 22 Ağustos 2026", channel: "Adres Müzik", views: "4,8 B görüntüleme", age: "1 gün önce", duration: "8:34", category: "Müzik" },
+        { id: "-FQ_-OMgzMY", title: "Yeni Çıkan Türkçe Şarkılar | 15 Ağustos 2026", channel: "Adres Müzik", views: "39 B görüntüleme", age: "8 gün önce", duration: "8:13", category: "Müzik" },
+        { id: "HZObP-SbHEM", title: "Blippi ile Dinozorları Keşfet! | Blippi Türkçe", channel: "Blippi Türkçe", views: "10 Mn görüntüleme", age: "3 yıl önce", duration: "7:03", category: "Eğitim" },
+        { id: "EwJgpDYwFhk", title: "En Komik Video Derlemeleri #1", channel: "Çılgın Türkler", views: "77 B görüntüleme", age: "2 yıl önce", duration: "7:05", category: "Komedi" },
+        { id: "XZK42t0g3-c", title: "2000'ler Türkçe Pop | HD Video Klip", channel: "Dj Burak Kilincoglu", views: "4,2 Mn görüntüleme", age: "1 yıl önce", duration: "20:34", category: "Müzik" },
+        { id: "PPWl1FK2BRQ", title: "Çağla - Saz mı Caz mı?", channel: "netd müzik", views: "366 Mn görüntüleme", age: "8 yıl önce", duration: "3:26", category: "Müzik" },
+        { id: "35X2Km-5j00", title: "Mavi Vatan'ın renk sırrı: TCG Anadolu neden gri?", channel: "GZT", views: "42 B görüntüleme", age: "2 gün önce", duration: "0:50", category: "Haber" },
+        { id: "K_KpomHNcc0", title: "Türk-İsrail Savaşında Kürtler Hangi Tarafta?", channel: "İbrahim Halil Baran", views: "52 B görüntüleme", age: "2 gün önce", duration: "1:09:12", category: "Haber" },
+        { id: "F64PRO93e3w", title: "Darbe olacak sanıp cumhurbaşkanı Erdoğan'ı tehdit etmiş!", channel: "TVNET", views: "749 B görüntüleme", age: "4 gün önce", duration: "0:42", category: "Haber" },
+        { id: "LdghWhfJPUA", title: "1 Dolar vs. 500.000 Dolarlık Deneyimler!", channel: "MrBeassttTurkiye", views: "13 B görüntüleme", age: "1 yıl önce", duration: "17:34", category: "Eğlence" }
       ];
-
-      const PIPED_INSTANCES = [
-        "https://piped.video",
-        "https://piped.mha.fi",
-        "https://piped.adminforge.de",
-        "https://piped.garudalinux.org"
-      ];
-
-      const PIPED_API_INSTANCES = [
-        "https://pipedapi.adminforge.de",
-        "https://pipedapi.mha.fi",
-        "https://piped-api.garudalinux.org",
-        "https://pipedapi.kavin.rocks"
-      ];
-
-      const categories = ["Tümü", "Müzik", "Oyun", "Haber", "Eğitim", "Komedi"];
+      
+      const categories = ["Tümü", ...new Set(videos.map((video) => video.category))];
       let activeCategory = "Tümü";
       let activeVideo = null;
       let mode = "home";
-      let currentVideos = [];
-      let workingEmbedInstance = PIPED_INSTANCES[0];
+      let searchTerm = "";
 
       const grid = document.querySelector("#videoGrid");
       const emptyState = document.querySelector("#emptyState");
-      const loadingState = document.querySelector("#loadingState");
       const resultCount = document.querySelector("#resultCount");
       const categoriesEl = document.querySelector("#categories");
       const searchInput = document.querySelector("#searchInput");
@@ -481,109 +462,25 @@
         try { localStorage.setItem(key, JSON.stringify(value)); }
         catch (_) { }
       }
-      function isFavorite(id) { return getStored("youtune-favorites").some(item => item.id === id); }
+      function isFavorite(id) { return getStored("youtune-favorites").includes(id); }
 
-      function formatDuration(seconds) {
-        if (!seconds && seconds !== 0) return "N/A";
-        const mins = Math.floor(seconds / 60);
-        const secs = Math.floor(seconds % 60);
-        return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
-      }
-
-      function formatViews(views) {
-        if (!views) return "0 görüntüleme";
-        if (views >= 1000000) return `${(views / 1000000).toFixed(1)} Mn görüntüleme`;
-        if (views >= 1000) return `${(views / 1000).toFixed(1)} B görüntüleme`;
-        return `${views} görüntüleme`;
-      }
-
-      // Timeout'lu Fetch İstek Fonksiyonu
-      async function fetchWithTimeout(url, options = {}, timeout = 5000) {
-        const controller = new AbortController();
-        const id = setTimeout(() => controller.abort(), timeout);
-        try {
-          const response = await fetch(url, { ...options, signal: controller.signal });
-          clearTimeout(id);
-          return response;
-        } catch (error) {
-          clearTimeout(id);
-          throw error;
-        }
-      }
-
-      // OTOMATİK SUNUCU ROTASYONLU API ARAMA
-      async function fetchVideosFromApi(query = "") {
-        grid.style.display = "none";
-        emptyState.style.display = "none";
-        loadingState.style.display = "block";
-        currentVideos = [];
-
-        // 1. AŞAMA: Invidious Sunucularını Dene
-        for (const instance of INVIDIOUS_INSTANCES) {
-          try {
-            const endpoint = query 
-              ? `${instance}/api/v1/search?q=${encodeURIComponent(query)}&type=video`
-              : `${instance}/api/v1/trending?region=TR&type=Music`;
-
-            const res = await fetchWithTimeout(endpoint, {}, 4500);
-            if (!res.ok) continue;
-
-            const data = await res.json();
-            if (Array.isArray(data) && data.length > 0) {
-              currentVideos = data.map(v => ({
-                id: v.videoId,
-                title: v.title,
-                channel: v.author,
-                views: formatViews(v.viewCount),
-                duration: formatDuration(v.lengthSeconds),
-                thumbnail: `https://i.ytimg.com/vi/${v.videoId}/hqdefault.jpg`,
-                category: "Genel"
-              }));
-              break; // Başarılı sonuç alındı, döngüden çık
-            }
-          } catch (e) {
-            console.warn(`Invidious denemesi başarısız (${instance}):`, e.message);
+      /* Filtreleme Mantığı */
+      function filteredVideos() {
+        const term = searchTerm.trim().toLocaleLowerCase("tr-TR");
+        return videos.filter((video) => {
+          const categoryMatch = activeCategory === "Tümü" || video.category === activeCategory;
+          const text = `${video.title} ${video.channel} ${video.category}`.toLocaleLowerCase("tr-TR");
+          const searchMatch = !term || text.includes(term);
+          
+          let modeMatch = true;
+          if (mode === "favorites") {
+            modeMatch = isFavorite(video.id);
+          } else if (mode === "history") {
+            modeMatch = getStored("youtune-history").includes(video.id);
           }
-        }
 
-        // 2. AŞAMA: Eğer Invidious sonuç vermediyse Piped API Sunucularını Dene
-        if (currentVideos.length === 0) {
-          for (const pipedApi of PIPED_API_INSTANCES) {
-            try {
-              const endpoint = query 
-                ? `${pipedApi}/search?q=${encodeURIComponent(query)}&filter=videos`
-                : `${pipedApi}/trending?region=TR`;
-
-              const res = await fetchWithTimeout(endpoint, {}, 4500);
-              if (!res.ok) continue;
-
-              const data = await res.json();
-              const items = query ? data.items : data;
-
-              if (Array.isArray(items) && items.length > 0) {
-                currentVideos = items.filter(i => i.type === "stream" || !i.type).map(v => {
-                  const videoId = v.url ? v.url.split("v=")[1] : v.videoId;
-                  return {
-                    id: videoId,
-                    title: v.title,
-                    channel: v.uploaderName || v.author,
-                    views: formatViews(v.views),
-                    duration: typeof v.duration === 'number' ? formatDuration(v.duration) : (v.duration || "N/A"),
-                    thumbnail: v.thumbnail || `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`,
-                    category: "Genel"
-                  };
-                });
-                break;
-              }
-            } catch (e) {
-              console.warn(`Piped API denemesi başarısız (${pipedApi}):`, e.message);
-            }
-          }
-        }
-
-        loadingState.style.display = "none";
-        grid.style.display = "grid";
-        renderVideos();
+          return categoryMatch && searchMatch && modeMatch;
+        });
       }
 
       function renderCategories() {
@@ -595,30 +492,21 @@
       }
 
       function renderVideos() {
-        let list = [];
-        if (mode === "home") {
-          list = currentVideos;
-        } else if (mode === "favorites") {
-          list = getStored("youtune-favorites");
-        } else if (mode === "history") {
-          list = getStored("youtune-history");
-        }
-
-        resultCount.textContent = `${list.length} video`;
-        emptyState.style.display = list.length ? "none" : "block";
-
-        grid.innerHTML = list.map((video) => `
+        const visibleVideos = filteredVideos();
+        resultCount.textContent = `${visibleVideos.length} video`;
+        emptyState.style.display = visibleVideos.length ? "none" : "block";
+        grid.innerHTML = visibleVideos.map((video) => `
           <article class="video-card" tabindex="0" role="button" data-video-id="${video.id}" aria-label="${video.title}">
             <div class="thumbnail-wrap">
-              <img src="${video.thumbnail}" alt="${video.title}" loading="lazy" onError="this.src='https://i.ytimg.com/vi/${video.id}/hqdefault.jpg'" />
+              <img src="https://i.ytimg.com/vi/${video.id}/hqdefault.jpg" alt="${video.title}" loading="lazy" />
               <span class="play-overlay">▶</span>
               <span class="duration">${video.duration}</span>
             </div>
             <div class="video-info">
-              <div class="channel-avatar">${video.channel ? video.channel.charAt(0) : 'Y'}</div>
+              <div class="channel-avatar">${video.channel.charAt(0)}</div>
               <div class="video-copy">
                 <h2 class="video-title">${video.title}</h2>
-                <p class="video-meta">${video.channel}<br>${video.views}</p>
+                <p class="video-meta">${video.channel}<br>${video.views} • ${video.age}</p>
               </div>
             </div>
           </article>
@@ -626,13 +514,12 @@
       }
 
       function openVideo(id) {
-        let allList = [...currentVideos, ...getStored("youtune-favorites"), ...getStored("youtune-history")];
-        activeVideo = allList.find((video) => video.id === id);
+        activeVideo = videos.find((video) => video.id === id);
         if (!activeVideo) return;
 
         // Geçmişe ekle
-        const history = getStored("youtune-history").filter((item) => item.id !== id);
-        setStored("youtune-history", [activeVideo, ...history].slice(0, 50));
+        const history = getStored("youtune-history").filter((item) => item !== id);
+        setStored("youtune-history", [id, ...history].slice(0, 30));
 
         document.querySelector("#playerTitle").textContent = activeVideo.title;
         document.querySelector("#playerMeta").textContent = `${activeVideo.channel} • ${activeVideo.views}`;
@@ -641,9 +528,9 @@
         favoriteButton.textContent = isFavorite(id) ? "♥ Favorilerden çıkar" : "♡ Favorile";
         favoriteButton.classList.toggle("selected", isFavorite(id));
 
-        // Piped Embed İframe'i
+        // Reklamsız Piped Embed iframe Kullanımı
         playerFrame.innerHTML = `<iframe 
-          src="${workingEmbedInstance}/embed/${id}?autoplay=1" 
+          src="https://piped.video/embed/${id}?autoplay=1" 
           title="${activeVideo.title}" 
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
           allowfullscreen></iframe>`;
@@ -654,7 +541,7 @@
 
       function closeVideo() {
         modal.classList.remove("open");
-        playerFrame.innerHTML = "";
+        playerFrame.innerHTML = ""; // İframe'i silerek videoyu durdur
         document.body.style.overflow = "";
         activeVideo = null;
       }
@@ -663,24 +550,17 @@
         mode = nextMode;
         document.querySelectorAll(".nav-button").forEach((button) => button.classList.remove("active"));
         document.querySelector(`#${nextMode === "home" ? "homeButton" : nextMode === "favorites" ? "favoritesButton" : "historyButton"}`).classList.add("active");
-        
-        if (nextMode === "home") {
-          document.querySelector("#pageTitle").textContent = searchInput.value ? `"${searchInput.value}" sonuçları` : "Trend Videolar";
-        } else {
-          document.querySelector("#pageTitle").textContent = nextMode === "favorites" ? "Favoriler" : "Geçmiş";
-        }
-        
+        document.querySelector("#pageTitle").textContent = nextMode === "home" ? "Ana Sayfa" : nextMode === "favorites" ? "Favoriler" : "Geçmiş";
         renderVideos();
       }
 
       // Olay Dinleyicileri
       document.querySelector("#searchForm").addEventListener("submit", (event) => {
         event.preventDefault();
-        const term = searchInput.value.trim();
-        if (!term) return;
+        searchTerm = searchInput.value;
         mode = "home";
-        document.querySelector("#pageTitle").textContent = `"${term}" sonuçları`;
-        fetchVideosFromApi(term);
+        document.querySelector("#pageTitle").textContent = searchTerm ? `"${searchTerm}" sonuçları` : "Ana Sayfa";
+        renderVideos();
       });
 
       categoriesEl.addEventListener("click", (event) => {
@@ -688,13 +568,7 @@
         if (!button) return;
         activeCategory = button.dataset.category;
         renderCategories();
-        
-        const term = searchInput.value.trim();
-        if (activeCategory === "Tümü") {
-          fetchVideosFromApi(term);
-        } else {
-          fetchVideosFromApi(`${activeCategory} ${term}`.trim());
-        }
+        renderVideos();
       });
 
       grid.addEventListener("click", (event) => {
@@ -715,8 +589,7 @@
       favoriteButton.addEventListener("click", () => {
         if (!activeVideo) return;
         const favorites = getStored("youtune-favorites");
-        const exists = isFavorite(activeVideo.id);
-        const next = exists ? favorites.filter((v) => v.id !== activeVideo.id) : [activeVideo, ...favorites];
+        const next = isFavorite(activeVideo.id) ? favorites.filter((id) => id !== activeVideo.id) : [activeVideo.id, ...favorites];
         setStored("youtune-favorites", next);
         favoriteButton.textContent = isFavorite(activeVideo.id) ? "♥ Favorilerden çıkar" : "♡ Favorile";
         favoriteButton.classList.toggle("selected", isFavorite(activeVideo.id));
@@ -727,24 +600,16 @@
         if (!activeVideo) return;
         const url = `https://www.youtube.com/watch?v=${activeVideo.id}`;
         if (navigator.share) await navigator.share({ title: activeVideo.title, url });
-        else { await navigator.clipboard?.writeText(url); alert("Bağlantı kopyalandı."); }
+        else { await navigator.clipboard?.writeText(url); alert("YouTube bağlantısı kopyalandı."); }
       });
 
       document.querySelector("#homeButton").addEventListener("click", () => setMode("home"));
       document.querySelector("#favoritesButton").addEventListener("click", () => setMode("favorites"));
       document.querySelector("#historyButton").addEventListener("click", () => setMode("history"));
-      
-      document.querySelector("#brandBtn").addEventListener("click", () => {
-        searchInput.value = "";
-        activeCategory = "Tümü";
-        renderCategories();
-        setMode("home");
-        fetchVideosFromApi();
-      });
 
       // Başlangıç Çalıştırması
       renderCategories();
-      fetchVideosFromApi();
+      renderVideos();
     </script>
   </body>
 </html>
