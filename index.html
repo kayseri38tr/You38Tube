@@ -192,7 +192,6 @@
         font-weight: 800;
         overflow: hidden;
       }
-      .channel-avatar img { width: 100%; height: 100%; object-fit: cover; }
       .video-copy { min-width: 0; }
       .video-title {
         display: -webkit-box;
@@ -372,7 +371,7 @@
       <header>
         <div class="brand" id="brandBtn"><span class="brand-mark">▶</span><span>YouTune Türkiye</span></div>
         <form class="search-form" id="searchForm" role="search">
-          <input id="searchInput" type="search" placeholder="Piped API üzerinden reklamsız ara..." aria-label="Video ara" />
+          <input id="searchInput" type="search" placeholder="Reklamsız video ara..." aria-label="Video ara" />
           <button type="submit" aria-label="Ara">⌕</button>
         </form>
         <button class="header-action" type="button" aria-label="Bildirimler">♧</button>
@@ -382,7 +381,7 @@
         <section class="hero">
           <div>
             <h1 id="pageTitle">Trend Videolar</h1>
-            <p>Piped & Invidious altyapısıyla canlı, hızlı ve reklamsız video arama.</p>
+            <p>Aktif Piped & Invidious sunucu havuzu ile reklamsız canlı izleme.</p>
           </div>
           <div class="result-count" id="resultCount"></div>
         </section>
@@ -391,14 +390,14 @@
         
         <section class="loading-state" id="loadingState">
           <strong>Videolar yükleniyor...</strong>
-          Lütfen bekleyin, API üzerinden canlı veri çekiliyor.
+          Lütfen bekleyin, canlı API sunucularından veri çekiliyor.
         </section>
 
         <section class="video-grid" id="videoGrid" aria-live="polite"></section>
         
         <section class="empty" id="emptyState">
           <strong>Video bulunamadı</strong>
-          Arama kelimesini veya kategori filtresini değiştirip tekrar deneyebilirsin.
+          Arama kelimesini değiştirebilir veya farklı bir kategori seçebilirsiniz.
         </section>
       </main>
 
@@ -414,7 +413,7 @@
       <div class="android-device">
         <div class="player-panel">
           <div class="player-top">
-            <span class="android-status-bar">Android Player (Piped)</span>
+            <span class="android-status-bar">Player (Reklamsız)</span>
             <button class="close-button" id="closeModal" type="button" aria-label="Kapat">×</button>
           </div>
           <div class="player-frame" id="playerFrame"></div>
@@ -434,14 +433,35 @@
     <script>
       "use strict";
 
-      const PIPED_API = "https://pipedapi.kavin.rocks";
-      const INVIDIOUS_API = "https://invidious.nerdvpn.de/api/v1";
+      // Aktif Invidious ve Piped Sunucu Havuzu (Ağ Korumalı Fallback)
+      const INVIDIOUS_INSTANCES = [
+        "https://inv.nadeko.net",
+        "https://invidious.nerdvpn.de",
+        "https://yt.artemislena.eu",
+        "https://invidious.privacydev.net",
+        "https://invidious.private.coffee"
+      ];
+
+      const PIPED_INSTANCES = [
+        "https://piped.video",
+        "https://piped.mha.fi",
+        "https://piped.adminforge.de",
+        "https://piped.garudalinux.org"
+      ];
+
+      const PIPED_API_INSTANCES = [
+        "https://pipedapi.adminforge.de",
+        "https://pipedapi.mha.fi",
+        "https://piped-api.garudalinux.org",
+        "https://pipedapi.kavin.rocks"
+      ];
 
       const categories = ["Tümü", "Müzik", "Oyun", "Haber", "Eğitim", "Komedi"];
       let activeCategory = "Tümü";
       let activeVideo = null;
       let mode = "home";
       let currentVideos = [];
+      let workingEmbedInstance = PIPED_INSTANCES[0];
 
       const grid = document.querySelector("#videoGrid");
       const emptyState = document.querySelector("#emptyState");
@@ -464,9 +484,9 @@
       function isFavorite(id) { return getStored("youtune-favorites").some(item => item.id === id); }
 
       function formatDuration(seconds) {
-        if (!seconds) return "0:00";
+        if (!seconds && seconds !== 0) return "N/A";
         const mins = Math.floor(seconds / 60);
-        const secs = seconds % 60;
+        const secs = Math.floor(seconds % 60);
         return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
       }
 
@@ -477,59 +497,87 @@
         return `${views} görüntüleme`;
       }
 
-      // PIPED / INVIDIOUS API ARAMA FONKSİYONU
+      // Timeout'lu Fetch İstek Fonksiyonu
+      async function fetchWithTimeout(url, options = {}, timeout = 5000) {
+        const controller = new AbortController();
+        const id = setTimeout(() => controller.abort(), timeout);
+        try {
+          const response = await fetch(url, { ...options, signal: controller.signal });
+          clearTimeout(id);
+          return response;
+        } catch (error) {
+          clearTimeout(id);
+          throw error;
+        }
+      }
+
+      // OTOMATİK SUNUCU ROTASYONLU API ARAMA
       async function fetchVideosFromApi(query = "") {
         grid.style.display = "none";
         emptyState.style.display = "none";
         loadingState.style.display = "block";
+        currentVideos = [];
 
-        try {
-          let url = query 
-            ? `${PIPED_API}/search?q=${encodeURIComponent(query)}&filter=videos` 
-            : `${PIPED_API}/trending?region=TR`;
-
-          let res = await fetch(url);
-          
-          if (!res.ok) throw new Error("Piped servisine ulaşılamadı");
-          let data = await res.json();
-          
-          let items = query ? data.items : data;
-          
-          currentVideos = items.filter(i => i.type === "stream" || !i.type).map(v => {
-            const videoId = v.url ? v.url.split("v=")[1] : v.videoId;
-            return {
-              id: videoId,
-              title: v.title,
-              channel: v.uploaderName || v.author,
-              views: formatViews(v.views),
-              duration: typeof v.duration === 'number' ? formatDuration(v.duration) : (v.duration || "N/A"),
-              thumbnail: v.thumbnail || `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`,
-              category: "Genel"
-            };
-          });
-
-        } catch (err) {
-          console.warn("Piped hatası, Invidious deneniyor...", err);
+        // 1. AŞAMA: Invidious Sunucularını Dene
+        for (const instance of INVIDIOUS_INSTANCES) {
           try {
-            let invUrl = query 
-              ? `${INVIDIOUS_API}/search?q=${encodeURIComponent(query)}&type=video` 
-              : `${INVIDIOUS_API}/trending?region=TR`;
-            
-            let res = await fetch(invUrl);
-            let data = await res.json();
-            
-            currentVideos = data.map(v => ({
-              id: v.videoId,
-              title: v.title,
-              channel: v.author,
-              views: formatViews(v.viewCount),
-              duration: formatDuration(v.lengthSeconds),
-              thumbnail: `https://i.ytimg.com/vi/${v.videoId}/hqdefault.jpg`,
-              category: "Genel"
-            }));
-          } catch (invErr) {
-            console.error("Her iki API isteği de başarısız oldu:", invErr);
-            currentVideos = [];
+            const endpoint = query 
+              ? `${instance}/api/v1/search?q=${encodeURIComponent(query)}&type=video`
+              : `${instance}/api/v1/trending?region=TR&type=Music`;
+
+            const res = await fetchWithTimeout(endpoint, {}, 4500);
+            if (!res.ok) continue;
+
+            const data = await res.json();
+            if (Array.isArray(data) && data.length > 0) {
+              currentVideos = data.map(v => ({
+                id: v.videoId,
+                title: v.title,
+                channel: v.author,
+                views: formatViews(v.viewCount),
+                duration: formatDuration(v.lengthSeconds),
+                thumbnail: `https://i.ytimg.com/vi/${v.videoId}/hqdefault.jpg`,
+                category: "Genel"
+              }));
+              break; // Başarılı sonuç alındı, döngüden çık
+            }
+          } catch (e) {
+            console.warn(`Invidious denemesi başarısız (${instance}):`, e.message);
+          }
+        }
+
+        // 2. AŞAMA: Eğer Invidious sonuç vermediyse Piped API Sunucularını Dene
+        if (currentVideos.length === 0) {
+          for (const pipedApi of PIPED_API_INSTANCES) {
+            try {
+              const endpoint = query 
+                ? `${pipedApi}/search?q=${encodeURIComponent(query)}&filter=videos`
+                : `${pipedApi}/trending?region=TR`;
+
+              const res = await fetchWithTimeout(endpoint, {}, 4500);
+              if (!res.ok) continue;
+
+              const data = await res.json();
+              const items = query ? data.items : data;
+
+              if (Array.isArray(items) && items.length > 0) {
+                currentVideos = items.filter(i => i.type === "stream" || !i.type).map(v => {
+                  const videoId = v.url ? v.url.split("v=")[1] : v.videoId;
+                  return {
+                    id: videoId,
+                    title: v.title,
+                    channel: v.uploaderName || v.author,
+                    views: formatViews(v.views),
+                    duration: typeof v.duration === 'number' ? formatDuration(v.duration) : (v.duration || "N/A"),
+                    thumbnail: v.thumbnail || `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`,
+                    category: "Genel"
+                  };
+                });
+                break;
+              }
+            } catch (e) {
+              console.warn(`Piped API denemesi başarısız (${pipedApi}):`, e.message);
+            }
           }
         }
 
@@ -562,7 +610,7 @@
         grid.innerHTML = list.map((video) => `
           <article class="video-card" tabindex="0" role="button" data-video-id="${video.id}" aria-label="${video.title}">
             <div class="thumbnail-wrap">
-              <img src="${video.thumbnail}" alt="${video.title}" loading="lazy" />
+              <img src="${video.thumbnail}" alt="${video.title}" loading="lazy" onError="this.src='https://i.ytimg.com/vi/${video.id}/hqdefault.jpg'" />
               <span class="play-overlay">▶</span>
               <span class="duration">${video.duration}</span>
             </div>
@@ -593,9 +641,9 @@
         favoriteButton.textContent = isFavorite(id) ? "♥ Favorilerden çıkar" : "♡ Favorile";
         favoriteButton.classList.toggle("selected", isFavorite(id));
 
-        // Reklamsız Piped Embed kullanımı
+        // Piped Embed İframe'i
         playerFrame.innerHTML = `<iframe 
-          src="https://piped.video/embed/${id}?autoplay=1" 
+          src="${workingEmbedInstance}/embed/${id}?autoplay=1" 
           title="${activeVideo.title}" 
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
           allowfullscreen></iframe>`;
@@ -641,10 +689,11 @@
         activeCategory = button.dataset.category;
         renderCategories();
         
+        const term = searchInput.value.trim();
         if (activeCategory === "Tümü") {
-          fetchVideosFromApi(searchInput.value.trim());
+          fetchVideosFromApi(term);
         } else {
-          fetchVideosFromApi(`${activeCategory} ${searchInput.value.trim()}`);
+          fetchVideosFromApi(`${activeCategory} ${term}`.trim());
         }
       });
 
