@@ -166,6 +166,33 @@
         scrollbar-width: none;
       }
       .categories::-webkit-scrollbar { display: none; }
+      .search-types {
+        display: flex;
+        gap: 8px;
+        margin: 0 0 18px;
+        padding: 4px;
+        width: max-content;
+        max-width: 100%;
+        overflow-x: auto;
+        border: 1px solid var(--line);
+        border-radius: 25px;
+        background: var(--surface);
+        scrollbar-width: none;
+      }
+      .search-types::-webkit-scrollbar { display: none; }
+      .search-type {
+        flex: 0 0 auto;
+        padding: 9px 15px;
+        border: 0;
+        border-radius: 20px;
+        color: var(--muted);
+        background: transparent;
+        font-weight: 700;
+      }
+      .search-type:hover, .search-type.active {
+        color: white;
+        background: var(--accent);
+      }
       .category {
         flex: 0 0 auto;
         padding: 9px 16px;
@@ -270,6 +297,99 @@
         -webkit-line-clamp: 2;
       }
       .video-meta { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.45; }
+      .entity-card {
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+        padding: 16px;
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        color: var(--text);
+        background: var(--surface);
+        text-align: left;
+        transition: transform .2s ease, border-color .2s ease, background .2s ease;
+      }
+      .entity-card:hover, .entity-card:focus-visible {
+        border-color: var(--accent);
+        background: var(--surface-2);
+        transform: translateY(-4px);
+      }
+      .entity-icon {
+        display: grid;
+        place-items: center;
+        width: 58px;
+        height: 58px;
+        margin-bottom: 13px;
+        border-radius: 15px;
+        color: white;
+        background: linear-gradient(135deg, #ef4444, #7f1d1d);
+        font-size: 25px;
+        font-weight: 800;
+      }
+      .entity-card.playlist .entity-icon { background: linear-gradient(135deg, #f97316, #9a3412); }
+      .entity-card.channel .entity-icon { border-radius: 50%; background: linear-gradient(135deg, #64748b, #1e293b); }
+      .entity-card h2 { margin: 0 0 7px; font-size: 16px; line-height: 1.3; }
+      .entity-card p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.45; }
+      .collection-panel {
+        margin: 4px 0 24px;
+        padding: 18px;
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: linear-gradient(135deg, var(--surface), #202020);
+      }
+      .collection-back {
+        padding: 7px 12px;
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        color: var(--text);
+        background: var(--surface-2);
+      }
+      .collection-back:hover { border-color: var(--accent); color: white; background: var(--accent); }
+      .collection-heading {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        margin-top: 16px;
+      }
+      .collection-heading h2 { margin: 0 0 5px; font-size: clamp(20px, 3vw, 28px); }
+      .collection-heading p { margin: 0; color: var(--muted); font-size: 13px; }
+      .collection-icon {
+        display: grid;
+        flex: 0 0 58px;
+        place-items: center;
+        width: 58px;
+        height: 58px;
+        border-radius: 16px;
+        color: white;
+        background: var(--accent);
+        font-size: 24px;
+        font-weight: 800;
+      }
+      .collection-icon.channel { border-radius: 50%; background: #334155; }
+      .collection-subtitle {
+        margin: 22px 0 12px;
+        color: var(--muted);
+        font-size: 13px;
+        font-weight: 700;
+        letter-spacing: .04em;
+        text-transform: uppercase;
+      }
+      .collection-playlists {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+        gap: 10px;
+      }
+      .collection-playlist {
+        padding: 12px;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        color: var(--text);
+        background: rgba(0, 0, 0, .18);
+        text-align: left;
+      }
+      .collection-playlist:hover { border-color: var(--accent); background: var(--accent-soft); }
+      .collection-playlist strong { display: block; margin-bottom: 5px; line-height: 1.3; }
+      .collection-playlist span { color: var(--muted); font-size: 12px; }
       .empty {
         display: none;
         padding: 90px 20px;
@@ -384,6 +504,8 @@
         .inline-player-details p { font-size: 11px; }
         .inline-player-actions { margin-top: 10px; }
         .inline-player-actions button, .inline-player-actions a { padding: 7px 10px; font-size: 12px; }
+         .search-types { width: 100%; }
+         .collection-panel { padding: 14px; }
         .hero { display: block; }
         .result-count { display: block; margin-top: 12px; }
         .video-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px 10px; }
@@ -426,7 +548,23 @@
           <div class="result-count" id="resultCount"></div>
         </section>
 
+        <nav class="search-types" id="searchTypes" aria-label="Arama türleri" hidden></nav>
         <nav class="categories" id="categories" aria-label="Video kategorileri"></nav>
+        <section class="collection-panel" id="collectionPanel" hidden>
+          <button class="collection-back" id="collectionBack" type="button">← Sonuçlara dön</button>
+          <div class="collection-heading">
+            <div class="collection-icon" id="collectionIcon">▶</div>
+            <div>
+              <h2 id="collectionTitle">İçerik yükleniyor</h2>
+              <p id="collectionMeta"></p>
+            </div>
+          </div>
+          <div id="collectionPlaylistsBox" hidden>
+            <div class="collection-subtitle">Bu kanala ait oynatma listeleri</div>
+            <div class="collection-playlists" id="collectionPlaylists"></div>
+          </div>
+          <div class="collection-subtitle" id="collectionVideosLabel" hidden>Videolar · yeniden eskiye</div>
+        </section>
         <section class="video-grid" id="videoGrid" aria-live="polite"></section>
         <section class="empty" id="emptyState">
           <strong>Video bulunamadı</strong>
@@ -549,15 +687,33 @@
       let mode = "home";
       let searchTerm = "";
       let remoteVideos = null;
+       let remotePlaylists = [];
+       let remoteChannels = [];
+       let remoteSearchResults = [];
       let searchPage = 0;
       let hasMoreSearchResults = false;
       let searchLoading = false;
       let remoteQuery = "";
+       let activeSearchType = "video";
+       let activeCollection = null;
+       let collectionParent = null;
+       let collectionVideos = [];
+       let collectionPlaylists = [];
+       let collectionLoading = false;
 
       const grid = document.querySelector("#videoGrid");
       const emptyState = document.querySelector("#emptyState");
       const resultCount = document.querySelector("#resultCount");
       const categoriesEl = document.querySelector("#categories");
+       const searchTypesEl = document.querySelector("#searchTypes");
+       const collectionPanel = document.querySelector("#collectionPanel");
+       const collectionBack = document.querySelector("#collectionBack");
+       const collectionTitle = document.querySelector("#collectionTitle");
+       const collectionMeta = document.querySelector("#collectionMeta");
+       const collectionIcon = document.querySelector("#collectionIcon");
+       const collectionPlaylistsBox = document.querySelector("#collectionPlaylistsBox");
+       const collectionPlaylistsEl = document.querySelector("#collectionPlaylists");
+       const collectionVideosLabel = document.querySelector("#collectionVideosLabel");
       const searchInput = document.querySelector("#searchInput");
       const playerFrame = document.querySelector("#playerFrame");
       const favoriteButton = document.querySelector("#favoriteButton");
@@ -726,7 +882,220 @@
         throw lastError || new Error("Arama sunucularına şu an erişilemiyor.");
       }
 
+       function readUrlValue(url, key) {
+         if (!url) return "";
+         try {
+           return new URL(url, window.location.origin).searchParams.get(key) || "";
+         } catch (_) {
+           const match = String(url).match(new RegExp(`[?&]${key}=([^&]+)`));
+           return match ? decodeURIComponent(match[1]) : "";
+         }
+       }
+
+       function getItemType(item) {
+         const type = String(item.type || "").toLocaleLowerCase("tr-TR");
+         if (type.includes("playlist")) return "playlist";
+         if (type.includes("channel") || type.includes("user")) return "channel";
+          if (item.playlistId && !item.videoId) return "playlist";
+         return "video";
+       }
+
+       function normalizePlaylist(item) {
+         const id = item.playlistId || item.id || readUrlValue(item.url, "list");
+         if (!id) return null;
+         return {
+           id,
+           title: item.title || item.name || "Başlıksız oynatma listesi",
+           channel: item.uploaderName || item.author || item.channelName || "",
+           count: item.videoCount ?? item.playlistVideoCount ?? item.videos ?? "",
+           thumbnail: item.thumbnail || item.thumbnailUrl || ""
+         };
+       }
+
+       function normalizeChannel(item) {
+         let id = item.channelId || item.authorId || item.id || "";
+         if (!id && item.url) {
+           const match = String(item.url).match(/\/(?:channel|user)\/([^/?]+)/);
+           id = match ? match[1] : "";
+         }
+         if (!id) return null;
+         return {
+           id,
+           title: item.name || item.author || item.uploaderName || item.title || "Kanal",
+           handle: item.handle || item.authorUrl || "",
+           subscribers: item.subscribers ?? item.subscriberCount ?? "",
+           thumbnail: item.thumbnail || item.avatarUrl || item.authorThumbnails?.[0]?.url || ""
+         };
+       }
+
+       function normalizeSearchItem(item) {
+         const type = getItemType(item);
+         if (type === "playlist") {
+           const playlist = normalizePlaylist(item);
+           return playlist ? { type, ...playlist } : null;
+         }
+         if (type === "channel") {
+           const channel = normalizeChannel(item);
+           return channel ? { type, ...channel } : null;
+         }
+         const id = getVideoId(item);
+         return id ? {
+           type: "video",
+           id,
+           title: item.title || "Başlıksız",
+           channel: item.uploaderName || item.author || "Kanal",
+           views: formatViews(item.views ?? item.viewCount),
+           age: item.uploadedDate || item.publishedText || "",
+           duration: formatDuration(item.duration ?? item.lengthSeconds),
+           publishedAt: item.uploaded ?? item.published ?? item.publishedAt ?? 0,
+           category: "Arama"
+         } : null;
+       }
+
+       async function fetchUnifiedSearch(query, page = 1) {
+         let lastError;
+         for (const endpoint of SEARCH_ENDPOINTS) {
+           try {
+             const controller = new AbortController();
+             const timeoutId = setTimeout(() => controller.abort(), 5500);
+             const fetchUrl = endpoint.type === "piped"
+               ? `${endpoint.url}?q=${encodeURIComponent(query)}&filter=all&page=${page}`
+               : `${endpoint.url}?q=${encodeURIComponent(query)}&type=all&page=${page}`;
+             const response = await fetch(fetchUrl, { signal: controller.signal });
+             clearTimeout(timeoutId);
+             if (!response.ok) continue;
+             const data = await response.json();
+             const rawItems = Array.isArray(data) ? data : (data.items || []);
+             const results = rawItems.map(normalizeSearchItem).filter(Boolean);
+             if (results.length) return results;
+           } catch (error) {
+             lastError = error;
+           }
+         }
+         throw lastError || new Error("Video, oynatma listesi ve kanal sonuçları alınamadı.");
+       }
+
+       function normalizeCollectionVideo(item) {
+         const id = item.videoId || item.id || getVideoId(item);
+         if (!id) return null;
+         return {
+           id,
+           title: item.title || "Başlıksız",
+           channel: item.uploaderName || item.author || item.channel || "Kanal",
+           views: formatViews(item.views ?? item.viewCount),
+           age: item.uploadedDate || item.publishedText || item.publishedText || "",
+           duration: formatDuration(item.duration ?? item.lengthSeconds),
+           publishedAt: item.uploaded ?? item.published ?? item.publishedAt ?? 0,
+           category: "Koleksiyon"
+         };
+       }
+
+       function getCollectionId(item) {
+         return item.id || item.playlistId || item.channelId || item.authorId || "";
+       }
+
+       async function fetchCollection(kind, item) {
+         const id = getCollectionId(item);
+         if (!id) throw new Error("Bu içerik için geçerli bir kimlik bulunamadı.");
+         let lastError;
+         for (const endpoint of SEARCH_ENDPOINTS) {
+           try {
+             const baseUrl = endpoint.type === "piped"
+               ? endpoint.url.replace(/\/search\/?$/, "")
+               : endpoint.url.replace(/\/search\/?$/, "");
+             const path = kind === "playlist"
+               ? `/playlists/${encodeURIComponent(id)}`
+               : endpoint.type === "piped"
+                 ? `/channel/${encodeURIComponent(id)}`
+                 : `/channels/${encodeURIComponent(id)}`;
+             const controller = new AbortController();
+             const timeoutId = setTimeout(() => controller.abort(), 7000);
+             const response = await fetch(`${baseUrl}${path}`, { signal: controller.signal });
+             clearTimeout(timeoutId);
+             if (!response.ok) continue;
+             const data = await response.json();
+             let rawVideos = [
+               data.relatedStreams,
+               data.latestVideos,
+               data.latestStreams,
+               Array.isArray(data.videos) ? data.videos : null
+             ].find(Array.isArray) || [];
+             let nextPage = data.nextpage || "";
+             const tabPlaylists = Array.isArray(data.tabs)
+               ? data.tabs.flatMap((tab) => {
+                 if (Array.isArray(tab.content)) return tab.content;
+                 try {
+                   const tabData = typeof tab.data === "string" ? JSON.parse(tab.data) : tab.data;
+                   return tabData && tab.name === "playlists" ? [{ tabData, isChannelTab: true }] : [];
+                 } catch (_) {
+                   return [];
+                 }
+               })
+               : [];
+             let rawPlaylists = data.playlists || data.playlist || tabPlaylists;
+
+             // Piped, kanal ve oynatma listelerinde ilk sayfadan sonra
+             // nextpage ile gelen içerikleri kullanır.
+             if (!rawVideos.length && nextPage && endpoint.type === "piped") {
+               const nextPath = kind === "playlist"
+                 ? `/nextpage/playlists/${encodeURIComponent(id)}`
+                 : `/nextpage/channel/${encodeURIComponent(id)}`;
+               const nextResponse = await fetch(
+                 `${baseUrl}${nextPath}?nextpage=${encodeURIComponent(nextPage)}`,
+                 { signal: controller.signal }
+               );
+               if (nextResponse.ok) {
+                 const nextData = await nextResponse.json();
+                 rawVideos = nextData.relatedStreams || [];
+               }
+             }
+
+             // Kanalın "Oynatma listeleri" sekmesi, Piped'da ayrı bir istekle gelir.
+             if (kind === "channel" && endpoint.type === "piped") {
+               const playlistTab = Array.isArray(data.tabs)
+                 ? data.tabs.find((tab) => tab.name === "playlists")
+                 : null;
+               if (playlistTab?.data) {
+                 const tabResponse = await fetch(
+                   `${baseUrl}/channels/tabs?data=${encodeURIComponent(playlistTab.data)}`,
+                   { signal: controller.signal }
+                 );
+                 if (tabResponse.ok) {
+                   const tabData = await tabResponse.json();
+                   rawPlaylists = [
+                     ...rawPlaylists.filter((entry) => !entry.isChannelTab),
+                     ...(tabData.relatedStreams || tabData.items || [])
+                   ];
+                 }
+               }
+             }
+
+             const videos = rawVideos.map(normalizeCollectionVideo).filter(Boolean);
+             const playlists = (Array.isArray(rawPlaylists) ? rawPlaylists : [])
+               .map(normalizePlaylist).filter(Boolean);
+             if (videos.length || playlists.length) {
+               return {
+                 videos: Array.from(new Map(videos.map((video) => [video.id, video])).values()),
+                 playlists: Array.from(new Map(playlists.map((playlist) => [playlist.id, playlist])).values())
+               };
+             }
+           } catch (error) {
+             lastError = error;
+           }
+         }
+         throw lastError || new Error("İçerik detayları şu an alınamadı.");
+       }
+
+       function newestFirst(items) {
+         return items.slice().sort((a, b) => {
+           const left = Number(a.publishedAt) || Date.parse(a.age) || 0;
+           const right = Number(b.publishedAt) || Date.parse(b.age) || 0;
+           return right - left;
+         });
+       }
+
       function renderCategories() {
+          categoriesEl.hidden = Boolean(activeCollection || (remoteVideos && activeSearchType !== "video"));
          const sourceCategories = mode === "favorites"
            ? ["Tümü"]
            : remoteVideos
@@ -741,7 +1110,112 @@
         `).join("");
       }
 
+       function renderSearchTypes() {
+         const visible = Boolean(remoteSearchResults.length && !activeCollection);
+         searchTypesEl.hidden = !visible;
+         if (!visible) {
+           searchTypesEl.innerHTML = "";
+           return;
+         }
+         const types = [
+           ["video", "Video", (remoteVideos || []).length],
+           ["playlist", "Oynatma Listesi", remotePlaylists.length],
+           ["channel", "Kanal", remoteChannels.length]
+         ];
+         searchTypesEl.innerHTML = types.map(([type, label, count]) => `
+           <button class="search-type ${activeSearchType === type ? "active" : ""}" type="button" data-search-type="${type}">
+             ${label} <span>(${count})</span>
+           </button>
+         `).join("");
+       }
+
+       function renderEntities() {
+         const entities = activeSearchType === "playlist" ? remotePlaylists : remoteChannels;
+         resultCount.textContent = `${entities.length} ${activeSearchType === "playlist" ? "oynatma listesi" : "kanal"}`;
+         emptyState.innerHTML = activeSearchType === "playlist"
+           ? "<strong>Oynatma listesi bulunamadı</strong>Bu aramayla eşleşen oynatma listesi yok."
+           : "<strong>Kanal bulunamadı</strong>Bu aramayla eşleşen kanal yok.";
+         emptyState.style.display = entities.length ? "none" : "block";
+         grid.innerHTML = entities.map((entity) => {
+           const isPlaylist = activeSearchType === "playlist";
+           const count = isPlaylist
+             ? (entity.count ? `${entity.count} video` : "Video sayısı belirtilmemiş")
+             : (entity.subscribers ? `${formatViews(entity.subscribers)} abone` : "Kanal");
+           const icon = isPlaylist ? "▤" : entity.title.charAt(0).toLocaleUpperCase("tr-TR");
+           return `
+             <article class="entity-card ${activeSearchType}" tabindex="0" role="button"
+               data-${activeSearchType}-id="${entity.id}" aria-label="${entity.title}">
+               <div class="entity-icon">${icon}</div>
+               <h2>${entity.title}</h2>
+               <p>${isPlaylist && entity.channel ? `${entity.channel}<br>` : ""}${count}</p>
+             </article>
+           `;
+         }).join("");
+         document.querySelector("#loadMoreBox").classList.remove("visible");
+       }
+
+       function renderCollection() {
+         collectionPanel.hidden = !activeCollection;
+         if (!activeCollection) return;
+         const { kind, entity } = activeCollection;
+         const title = entity.title || (kind === "channel" ? "Kanal" : "Oynatma listesi");
+         collectionTitle.textContent = title;
+         collectionMeta.textContent = kind === "channel"
+           ? `${collectionVideos.length} video${collectionPlaylists.length ? ` • ${collectionPlaylists.length} oynatma listesi` : ""}`
+           : `${collectionVideos.length} video • yeniden eskiye`;
+         collectionIcon.textContent = kind === "channel" ? title.charAt(0).toLocaleUpperCase("tr-TR") : "▤";
+         collectionIcon.classList.toggle("channel", kind === "channel");
+         collectionPlaylistsBox.hidden = kind !== "channel" || !collectionPlaylists.length;
+         collectionVideosLabel.hidden = !collectionVideos.length;
+         collectionPlaylistsEl.innerHTML = collectionPlaylists.map((playlist) => `
+           <button class="collection-playlist" type="button" data-collection-playlist-id="${playlist.id}">
+             <strong>${playlist.title}</strong>
+             <span>${playlist.count ? `${playlist.count} video` : "Oynatma listesini aç"}</span>
+           </button>
+         `).join("");
+         if (collectionLoading) {
+           resultCount.textContent = "İçerik yükleniyor...";
+           grid.innerHTML = "";
+           emptyState.innerHTML = "<strong>İçerik yükleniyor...</strong>Videolar ve oynatma listeleri getiriliyor.";
+           emptyState.style.display = "block";
+         } else {
+           resultCount.textContent = `${collectionVideos.length} video • yeniden eskiye`;
+           emptyState.style.display = collectionVideos.length ? "none" : "block";
+           grid.innerHTML = newestFirst(collectionVideos).map((video) => `
+             <article class="video-card" tabindex="0" role="button" data-video-id="${video.id}" aria-label="${video.title}">
+               <div class="thumbnail-wrap">
+                 <img src="https://i.ytimg.com/vi/${video.id}/hq720.jpg" alt="" loading="lazy"
+                   onerror="this.src='https://i.ytimg.com/vi/${video.id}/hqdefault.jpg'" />
+                 <button class="card-favorite ${isFavorite(video.id) ? "selected" : ""}" type="button"
+                   data-favorite-id="${video.id}" aria-label="${isFavorite(video.id) ? "Favorilerden çıkar" : "Favorilere ekle"}">
+                   ${isFavorite(video.id) ? "♥" : "♡"}
+                 </button>
+                 <span class="play-overlay">▶</span>
+                 <span class="duration">${video.duration}</span>
+               </div>
+               <div class="video-info">
+                 <div class="channel-avatar">${video.channel.charAt(0)}</div>
+                 <div class="video-copy">
+                   <h2 class="video-title">${video.title}</h2>
+                   <p class="video-meta">${video.channel}<br>${video.views} • ${video.age}</p>
+                 </div>
+               </div>
+             </article>
+           `).join("");
+         }
+         document.querySelector("#loadMoreBox").classList.remove("visible");
+       }
+
       function renderVideos() {
+          renderSearchTypes();
+          if (activeCollection) {
+            renderCollection();
+            return;
+          }
+          if (remoteSearchResults.length && activeSearchType !== "video") {
+            renderEntities();
+            return;
+          }
          const isHomeList = !remoteVideos && mode === "home";
          const allVisibleVideos = homeLoading && isHomeList ? [] : filteredVideos();
          const visibleVideos = isHomeList
@@ -785,13 +1259,13 @@
         const loadedCount = document.querySelector("#loadedCount");
         const loadMoreButton = document.querySelector("#loadMoreButton");
          const showHomeLoadMore = Boolean(isHomeList && allVisibleVideos.length);
-         const showSearchLoadMore = Boolean(mode === "home" && remoteVideos && remoteQuery && remoteVideos.length);
+          const showSearchLoadMore = Boolean(mode === "home" && remoteSearchResults.length && remoteQuery);
          const showLoadMore = showHomeLoadMore || showSearchLoadMore;
         loadMoreBox.classList.toggle("visible", showLoadMore);
          loadedCount.textContent = showHomeLoadMore
            ? `${visibleVideos.length} / ${allVisibleVideos.length} ana sayfa videosu gösteriliyor`
            : showSearchLoadMore
-             ? `${remoteVideos.length} sonuç yüklendi • en fazla 400 video`
+              ? `${remoteSearchResults.length} sonuç yüklendi • en fazla 400 sonuç`
              : "";
          loadMoreButton.hidden = isHomeList
            ? visibleVideos.length >= allVisibleVideos.length
@@ -821,7 +1295,7 @@
        }
 
       function openVideo(id) {
-        activeVideo = (remoteVideos || homeVideos).find((video) => video.id === id);
+         activeVideo = [...(remoteVideos || homeVideos), ...collectionVideos].find((video) => video.id === id);
         if (!activeVideo) return;
         document.querySelector("#inlinePlayer").hidden = false;
         const history = getStored("youtune-history").filter((item) => item !== id);
@@ -843,10 +1317,21 @@
 
       function setMode(nextMode) {
         mode = nextMode;
+         activeCollection = null;
+         collectionParent = null;
+         collectionVideos = [];
+         collectionPlaylists = [];
+         if (nextMode !== "home") {
+           activeSearchType = "video";
+           remoteSearchResults = [];
+           remotePlaylists = [];
+           remoteChannels = [];
+         }
          if (nextMode === "favorites") activeCategory = "Tümü";
         document.querySelectorAll(".nav-button").forEach((button) => button.classList.remove("active"));
         document.querySelector(`#${nextMode === "home" ? "homeButton" : nextMode === "favorites" ? "favoritesButton" : "historyButton"}`).classList.add("active");
-         renderCategories();
+          renderCategories();
+          renderSearchTypes();
         renderVideos();
       }
 
@@ -857,6 +1342,11 @@
 
          if (query.length < 2) {
             remoteVideos = null;
+            remotePlaylists = [];
+            remoteChannels = [];
+            remoteSearchResults = [];
+            activeCollection = null;
+            collectionParent = null;
             searchPage = 0;
             hasMoreSearchResults = false;
             remoteQuery = "";
@@ -865,6 +1355,7 @@
             homeVisibleCount = HOME_PAGE_SIZE;
             activeCategory = "Tümü";
             renderCategories();
+            renderSearchTypes();
            renderVideos();
            return;
          }
@@ -875,18 +1366,27 @@
          emptyState.style.display = "block";
 
          try {
-            const results = await fetchSearch(query, 1);
-            remoteVideos = results.slice(0, 20);
+             const results = await fetchUnifiedSearch(query, 1);
+             remoteSearchResults = results.slice(0, 20);
+             remoteVideos = remoteSearchResults.filter((item) => item.type === "video");
+             remotePlaylists = remoteSearchResults.filter((item) => item.type === "playlist");
+             remoteChannels = remoteSearchResults.filter((item) => item.type === "channel");
+             activeSearchType = "video";
+             activeCollection = null;
             searchPage = 1;
-            hasMoreSearchResults = results.length >= 20;
+             hasMoreSearchResults = results.length >= 20;
             remoteQuery = query;
             searchTerm = "";
            activeCategory = "Tümü";
            mode = "home";
            renderCategories();
+            renderSearchTypes();
            renderVideos();
          } catch (error) {
            remoteVideos = null;
+            remotePlaylists = [];
+            remoteChannels = [];
+            remoteSearchResults = [];
            resultCount.textContent = "Arama başarısız";
            emptyState.innerHTML = `<strong>Arama yapılamadı</strong>${error.message || "Lütfen tekrar deneyin."}`;
            emptyState.style.display = "block";
@@ -905,17 +1405,21 @@
            return;
          }
 
-         if (!remoteQuery || !hasMoreSearchResults || searchLoading || !remoteVideos || remoteVideos.length >= 400) return;
+         if (!remoteQuery || !hasMoreSearchResults || searchLoading || !remoteSearchResults.length || remoteSearchResults.length >= 400) return;
          searchLoading = true;
          renderVideos();
 
          try {
-           const results = await fetchSearch(remoteQuery, searchPage + 1);
-           const nextVideos = [...remoteVideos, ...results];
-           remoteVideos = Array.from(new Map(nextVideos.map((video) => [video.id, video])).values()).slice(0, 400);
+            const results = await fetchUnifiedSearch(remoteQuery, searchPage + 1);
+            const nextResults = [...remoteSearchResults, ...results];
+            remoteSearchResults = Array.from(new Map(nextResults.map((item) => [`${item.type}:${item.id}`, item])).values()).slice(0, 400);
+            remoteVideos = remoteSearchResults.filter((item) => item.type === "video");
+            remotePlaylists = remoteSearchResults.filter((item) => item.type === "playlist");
+            remoteChannels = remoteSearchResults.filter((item) => item.type === "channel");
            searchPage += 1;
-           hasMoreSearchResults = results.length >= 20 && remoteVideos.length < 400;
+            hasMoreSearchResults = results.length >= 20 && remoteSearchResults.length < 400;
            renderCategories();
+            renderSearchTypes();
            renderVideos();
          } catch (error) {
            hasMoreSearchResults = false;
@@ -934,11 +1438,72 @@
         renderCategories();
         renderVideos();
       });
+       searchTypesEl.addEventListener("click", (event) => {
+         const button = event.target.closest("[data-search-type]");
+         if (!button || !remoteSearchResults.length) return;
+         activeSearchType = button.dataset.searchType;
+         activeCategory = "Tümü";
+         renderSearchTypes();
+         renderCategories();
+         renderVideos();
+       });
+       async function openCollection(kind, entity, parent = null) {
+         activeCollection = { kind, entity };
+         collectionParent = parent;
+         collectionVideos = [];
+         collectionPlaylists = [];
+         collectionLoading = true;
+         renderCategories();
+         renderSearchTypes();
+         renderVideos();
+         try {
+           const result = await fetchCollection(kind, entity);
+           collectionVideos = newestFirst(result.videos);
+           collectionPlaylists = result.playlists;
+         } catch (error) {
+           emptyState.innerHTML = `<strong>İçerik alınamadı</strong>${error.message || "Lütfen tekrar deneyin."}`;
+           emptyState.style.display = "block";
+         } finally {
+           collectionLoading = false;
+           renderVideos();
+         }
+       }
+       collectionBack.addEventListener("click", () => {
+         if (collectionParent) {
+           const parent = collectionParent;
+           openCollection(parent.kind, parent.entity);
+           return;
+         }
+         activeCollection = null;
+         collectionVideos = [];
+         collectionPlaylists = [];
+         renderCategories();
+         renderSearchTypes();
+         renderVideos();
+       });
+       collectionPlaylistsEl.addEventListener("click", (event) => {
+         const button = event.target.closest("[data-collection-playlist-id]");
+         if (!button) return;
+         const playlist = collectionPlaylists.find((item) => item.id === button.dataset.collectionPlaylistId);
+         if (playlist) openCollection("playlist", playlist, activeCollection);
+       });
       grid.addEventListener("click", (event) => {
+          const playlistCard = event.target.closest("[data-playlist-id]");
+          if (playlistCard) {
+            const playlist = remotePlaylists.find((item) => item.id === playlistCard.dataset.playlistId);
+            if (playlist) openCollection("playlist", playlist);
+            return;
+          }
+          const channelCard = event.target.closest("[data-channel-id]");
+          if (channelCard) {
+            const channel = remoteChannels.find((item) => item.id === channelCard.dataset.channelId);
+            if (channel) openCollection("channel", channel);
+            return;
+          }
          const favoriteControl = event.target.closest("[data-favorite-id]");
          if (favoriteControl) {
            event.stopPropagation();
-           const video = (remoteVideos || homeVideos).find((item) => item.id === favoriteControl.dataset.favoriteId)
+            const video = [...(remoteVideos || homeVideos), ...collectionVideos].find((item) => item.id === favoriteControl.dataset.favoriteId)
              || getFavoriteVideos().find((item) => item.id === favoriteControl.dataset.favoriteId);
            if (video) {
              toggleFavorite(video);
@@ -949,13 +1514,24 @@
            }
            return;
          }
-        const card = event.target.closest("[data-video-id]");
+         const card = event.target.closest("[data-video-id], [data-playlist-id], [data-channel-id]");
         if (card) openVideo(card.dataset.videoId);
       });
       grid.addEventListener("keydown", (event) => {
         if (event.key !== "Enter" && event.key !== " ") return;
         const card = event.target.closest("[data-video-id]");
-        if (card) { event.preventDefault(); openVideo(card.dataset.videoId); }
+         if (card) {
+           event.preventDefault();
+           if (card.dataset.playlistId) {
+             const playlist = remotePlaylists.find((item) => item.id === card.dataset.playlistId);
+             if (playlist) openCollection("playlist", playlist);
+           } else if (card.dataset.channelId) {
+             const channel = remoteChannels.find((item) => item.id === card.dataset.channelId);
+             if (channel) openCollection("channel", channel);
+           } else {
+             openVideo(card.dataset.videoId);
+           }
+         }
       });
       favoriteButton.addEventListener("click", () => {
         if (!activeVideo) return;
