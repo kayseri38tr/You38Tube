@@ -998,7 +998,7 @@
            title: item.title || "Başlıksız",
            channel: item.uploaderName || item.author || item.channel || "Kanal",
            views: formatViews(item.views ?? item.viewCount),
-           age: item.uploadedDate || item.publishedText || item.publishedText || "",
+            age: item.uploadedDate || item.publishedText || item.published || "",
            duration: formatDuration(item.duration ?? item.lengthSeconds),
            publishedAt: item.uploaded ?? item.published ?? item.publishedAt ?? 0,
             playlistIndex: Number(item.index ?? item.playlistIndex ?? item.position ?? item.videoIndex),
@@ -1116,6 +1116,70 @@
              lastError = error;
            }
          }
+
+          // Bazı Piped sunucuları oynatma listesinin video sayısını döndürür,
+          // ancak video dizisini boş bırakır. Bu durumda YouTube RSS akışını
+          // yedek kaynak olarak kullan ve akışın sırasını koru.
+          if (kind === "playlist") {
+            try {
+              const feedUrl = `https://www.youtube.com/feeds/videos.xml?playlist_id=${encodeURIComponent(id)}`;
+              const feedRequestUrls = [
+                feedUrl,
+                `https://api.allorigins.win/get?url=${encodeURIComponent(feedUrl)}`,
+                `https://api.allorigins.win/raw?url=${encodeURIComponent(feedUrl)}`,
+                `https://corsproxy.io/?url=${encodeURIComponent(feedUrl)}`
+              ];
+              let feedXml = "";
+              for (const feedRequestUrl of feedRequestUrls) {
+                try {
+                  const controller = new AbortController();
+                  const timeoutId = setTimeout(() => controller.abort(), 15000);
+                  const feedResponse = await fetch(feedRequestUrl, { signal: controller.signal });
+                  clearTimeout(timeoutId);
+                  if (!feedResponse.ok) continue;
+                  const responseText = await feedResponse.text();
+                  if (feedRequestUrl.includes("allorigins.win/get")) {
+                    const wrapped = JSON.parse(responseText);
+                    feedXml = wrapped.contents || "";
+                  } else {
+                    feedXml = responseText;
+                  }
+                  if (feedXml.includes("<feed")) break;
+                } catch (error) {
+                  lastError = error;
+                }
+              }
+              if (!feedXml) throw lastError || new Error("YouTube oynatma listesi akışı alınamadı.");
+              const feedDocument = new DOMParser().parseFromString(feedXml, "application/xml");
+              const entries = Array.from(feedDocument.getElementsByTagName("entry"));
+              const feedVideos = entries.map((entry) => {
+                const videoId = entry.getElementsByTagNameNS(
+                  "http://www.youtube.com/xml/schemas/2015",
+                  "videoId"
+                )[0]?.textContent?.trim();
+                const title = entry.getElementsByTagName("title")[0]?.textContent?.trim();
+                const published = entry.getElementsByTagName("published")[0]?.textContent?.trim();
+                const author = entry.getElementsByTagName("name")[0]?.textContent?.trim();
+                return normalizeCollectionVideo({
+                  videoId,
+                  title,
+                  author,
+                  published,
+                  publishedAt: published
+                });
+              }).filter(Boolean);
+
+              if (feedVideos.length) {
+                return {
+                  videos: feedVideos,
+                  playlists: []
+                };
+              }
+            } catch (error) {
+              lastError = error;
+            }
+          }
+
          return {
            videos: [],
            playlists: [],
