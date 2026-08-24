@@ -461,6 +461,13 @@
          { type: "invidious", url: "https://invidious.nerdvpn.de/api/v1/trending?region=TR" },
          { type: "invidious", url: "https://inv.tux.pizza/api/v1/trending?region=TR" }
        ];
+       const TRENDING_SEARCH_TERMS = [
+         "Türkiye gündem", "son dakika Türkiye", "Türkçe müzik", "yeni çıkan şarkılar",
+         "Türkçe pop", "Türkçe rap", "spor haberleri", "futbol Türkiye",
+         "Süper Lig", "teknoloji Türkiye", "oyun Türkçe", "Minecraft Türkçe",
+         "eğlence Türkçe", "komedi Türkçe", "film önerileri", "dizi önerileri",
+         "belgesel Türkçe", "bilim Türkçe", "ekonomi Türkiye", "magazin Türkiye"
+       ];
 
       // Çerez Yardımcı Fonksiyonları (Siteniz için çerez yönetimi eklenmiştir)
       function setCookie(name, value, days) {
@@ -628,6 +635,7 @@
 
        async function fetchTrending() {
          let lastError;
+         let trendingResults = [];
 
          for (const endpoint of TRENDING_ENDPOINTS) {
            try {
@@ -653,12 +661,27 @@
                category: "Trend"
              })).filter((video) => video.id);
 
-             if (results.length) return results.slice(0, 100);
+             if (results.length) {
+               trendingResults = results;
+               break;
+             }
            } catch (error) {
              lastError = error;
            }
          }
 
+         const searchResults = await Promise.allSettled(
+           TRENDING_SEARCH_TERMS.flatMap((term) => [1, 2].map((page) => fetchSearch(term, page)))
+         );
+         const relatedVideos = searchResults
+           .filter((result) => result.status === "fulfilled")
+           .flatMap((result) => result.value)
+           .map((video) => ({ ...video, category: "Trend" }));
+         const uniqueVideos = Array.from(new Map(
+           [...trendingResults, ...relatedVideos].map((video) => [video.id, video])
+         ).values());
+
+         if (uniqueVideos.length) return shuffleVideos(uniqueVideos).slice(0, 500);
          throw lastError || new Error("Türkiye trend videolarına şu an erişilemiyor.");
        }
 
