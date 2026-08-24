@@ -260,6 +260,20 @@
         font-size: 12px;
         font-weight: 700;
       }
+      .playlist-position {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        min-width: 29px;
+        padding: 4px 7px;
+        border: 1px solid rgba(255, 255, 255, .22);
+        border-radius: 5px;
+        color: white;
+        background: rgba(0, 0, 0, .82);
+        font-size: 12px;
+        font-weight: 800;
+        text-align: center;
+      }
       .play-overlay {
         position: absolute;
         inset: 0;
@@ -901,14 +915,14 @@
          return "video";
        }
 
-       function normalizePlaylist(item) {
-         const id = item.playlistId || item.id || readUrlValue(item.url, "list");
+        function normalizePlaylist(item) {
+          const id = item.playlistId || item.playlistID || item.id || readUrlValue(item.url, "list");
          if (!id) return null;
          return {
            id,
            title: item.title || item.name || "Başlıksız oynatma listesi",
            channel: item.uploaderName || item.author || item.channelName || "",
-           count: item.videoCount ?? item.playlistVideoCount ?? item.videos ?? "",
+            count: item.videoCount ?? item.playlistVideoCount ?? item.videoCountText ?? item.videos ?? "",
            thumbnail: item.thumbnail || item.thumbnailUrl || ""
          };
        }
@@ -987,6 +1001,7 @@
            age: item.uploadedDate || item.publishedText || item.publishedText || "",
            duration: formatDuration(item.duration ?? item.lengthSeconds),
            publishedAt: item.uploaded ?? item.published ?? item.publishedAt ?? 0,
+            playlistIndex: Number(item.index ?? item.playlistIndex ?? item.position ?? item.videoIndex),
            category: "Koleksiyon"
          };
        }
@@ -1044,8 +1059,9 @@
                ? data.tabs.flatMap((tab) => {
                  if (Array.isArray(tab.content)) return tab.content;
                  try {
-                   const tabData = typeof tab.data === "string" ? JSON.parse(tab.data) : tab.data;
-                   return tabData && tab.name === "playlists" ? [{ tabData, isChannelTab: true }] : [];
+              const tabData = typeof tab.data === "string" ? JSON.parse(tab.data) : tab.data;
+              if (!tabData || tab.name !== "playlists") return [];
+              return tabData.relatedStreams || tabData.items || tabData.playlists || tabData.content || [];
                  } catch (_) {
                    return [];
                  }
@@ -1087,7 +1103,7 @@
                }
              }
 
-             const videos = rawVideos.map(normalizeCollectionVideo).filter(Boolean);
+              const videos = rawVideos.map(normalizeCollectionVideo).filter(Boolean);
              const playlists = (Array.isArray(rawPlaylists) ? rawPlaylists : [])
                .map(normalizePlaylist).filter(Boolean);
              if (videos.length || playlists.length) {
@@ -1109,13 +1125,21 @@
          };
        }
 
-       function newestFirst(items) {
+        function newestFirst(items) {
          return items.slice().sort((a, b) => {
            const left = Number(a.publishedAt) || Date.parse(a.age) || 0;
            const right = Number(b.publishedAt) || Date.parse(b.age) || 0;
            return right - left;
          });
        }
+
+        function playlistOrder(items) {
+          return items.slice().sort((a, b) => {
+            const left = Number.isFinite(a.playlistIndex) ? a.playlistIndex : Number.MAX_SAFE_INTEGER;
+            const right = Number.isFinite(b.playlistIndex) ? b.playlistIndex : Number.MAX_SAFE_INTEGER;
+            return left - right;
+          });
+        }
 
       function renderCategories() {
           categoriesEl.hidden = Boolean(activeCollection || (remoteVideos && activeSearchType !== "video"));
@@ -1183,12 +1207,15 @@
          const { kind, entity } = activeCollection;
          const title = entity.title || (kind === "channel" ? "Kanal" : "Oynatma listesi");
          collectionTitle.textContent = title;
-         collectionMeta.textContent = kind === "channel"
-           ? `${collectionVideos.length} video${collectionPlaylists.length ? ` • ${collectionPlaylists.length} oynatma listesi` : ""}`
-           : `${collectionVideos.length} video • yeniden eskiye`;
+          collectionMeta.textContent = kind === "channel"
+            ? `${collectionVideos.length} video${collectionPlaylists.length ? ` • ${collectionPlaylists.length} oynatma listesi` : ""}`
+            : `${collectionVideos.length} video • listedeki sırası`;
          collectionIcon.textContent = kind === "channel" ? title.charAt(0).toLocaleUpperCase("tr-TR") : "▤";
          collectionIcon.classList.toggle("channel", kind === "channel");
          collectionPlaylistsBox.hidden = kind !== "channel" || !collectionPlaylists.length;
+          collectionVideosLabel.textContent = kind === "playlist"
+            ? "Videolar · listedeki sırası"
+            : "Videolar · yeniden eskiye";
          collectionVideosLabel.hidden = !collectionVideos.length;
          collectionPlaylistsEl.innerHTML = collectionPlaylists.map((playlist) => `
            <button class="collection-playlist" type="button" data-collection-playlist-id="${playlist.id}">
@@ -1202,7 +1229,9 @@
            emptyState.innerHTML = "<strong>İçerik yükleniyor...</strong>Videolar ve oynatma listeleri getiriliyor.";
            emptyState.style.display = "block";
          } else {
-           resultCount.textContent = `${collectionVideos.length} video • yeniden eskiye`;
+            resultCount.textContent = kind === "playlist"
+              ? `${collectionVideos.length} video • listedeki sırası`
+              : `${collectionVideos.length} video • yeniden eskiye`;
             if (collectionVideos.length) {
               emptyState.style.display = "none";
             } else if (collectionFallbackUrl) {
@@ -1213,11 +1242,15 @@
             } else {
               emptyState.style.display = "block";
             }
-           grid.innerHTML = newestFirst(collectionVideos).map((video) => `
+            const visibleCollectionVideos = kind === "playlist"
+              ? playlistOrder(collectionVideos)
+              : newestFirst(collectionVideos);
+            grid.innerHTML = visibleCollectionVideos.map((video, index) => `
              <article class="video-card" tabindex="0" role="button" data-video-id="${video.id}" aria-label="${video.title}">
                <div class="thumbnail-wrap">
                  <img src="https://i.ytimg.com/vi/${video.id}/hq720.jpg" alt="" loading="lazy"
                    onerror="this.src='https://i.ytimg.com/vi/${video.id}/hqdefault.jpg'" />
+                  ${kind === "playlist" ? `<span class="playlist-position">${index + 1}</span>` : ""}
                  <button class="card-favorite ${isFavorite(video.id) ? "selected" : ""}" type="button"
                    data-favorite-id="${video.id}" aria-label="${isFavorite(video.id) ? "Favorilerden çıkar" : "Favorilere ekle"}">
                    ${isFavorite(video.id) ? "♥" : "♡"}
@@ -1503,7 +1536,9 @@
          renderVideos();
          try {
            const result = await fetchCollection(kind, entity);
-           collectionVideos = newestFirst(result.videos);
+            collectionVideos = kind === "playlist"
+              ? playlistOrder(result.videos)
+              : newestFirst(result.videos);
            collectionPlaylists = result.playlists;
             collectionFallbackUrl = result.fallbackUrl || "";
          } catch (error) {
@@ -1563,12 +1598,12 @@
          const card = event.target.closest("[data-video-id], [data-playlist-id], [data-channel-id]");
         if (card) openVideo(card.dataset.videoId);
       });
-      grid.addEventListener("keydown", (event) => {
+       grid.addEventListener("keydown", (event) => {
         if (event.key !== "Enter" && event.key !== " ") return;
-        const card = event.target.closest("[data-video-id]");
+         const card = event.target.closest("[data-video-id], [data-playlist-id], [data-channel-id]");
          if (card) {
            event.preventDefault();
-           if (card.dataset.playlistId) {
+            if (card.dataset.playlistId) {
              const playlist = remotePlaylists.find((item) => item.id === card.dataset.playlistId);
              if (playlist) openCollection("playlist", playlist);
            } else if (card.dataset.channelId) {
