@@ -15,7 +15,6 @@
       --border: #e0d9cc;
       --radius: 14px;
     }
-
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
       font-family: 'Manrope', sans-serif;
@@ -27,238 +26,139 @@
         linear-gradient(90deg, rgba(224,217,204,0.45) 1px, transparent 1px);
       background-size: 28px 28px;
     }
-
     .container {
       max-width: 1100px;
       margin: 0 auto;
       padding: 40px 20px 80px;
     }
-
-    /* Header */
-    header {
-      text-align: center;
-      margin-bottom: 36px;
-    }
+    header { text-align: center; margin-bottom: 36px; }
     .badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      background: rgba(232,93,44,0.12);
-      color: var(--primary);
-      font-size: 12px;
-      font-weight: 600;
-      padding: 6px 14px;
-      border-radius: 999px;
-      margin-bottom: 18px;
+      display: inline-flex; align-items: center; gap: 6px;
+      background: rgba(232,93,44,0.12); color: var(--primary);
+      font-size: 12px; font-weight: 600; padding: 6px 14px;
+      border-radius: 999px; margin-bottom: 18px;
     }
     h1 {
       font-family: 'Space Grotesk', sans-serif;
       font-size: clamp(1.9rem, 5vw, 2.8rem);
-      font-weight: 700;
-      line-height: 1.15;
-      margin-bottom: 10px;
+      font-weight: 700; line-height: 1.15; margin-bottom: 10px;
     }
     h1 span { color: var(--primary); }
-    .subtitle {
-      color: var(--muted);
-      font-size: 15px;
-      line-height: 1.5;
-    }
+    .subtitle { color: var(--muted); font-size: 15px; line-height: 1.5; }
 
-    /* Search */
     .search-box {
-      display: flex;
-      max-width: 640px;
-      margin: 32px auto 0;
-      background: white;
-      border-radius: 999px;
+      display: flex; max-width: 640px; margin: 32px auto 0;
+      background: white; border-radius: 999px;
       border: 1px solid var(--border);
       box-shadow: 0 10px 30px -14px rgba(26,47,54,0.22);
       overflow: hidden;
     }
-    .search-box input {
-      flex: 1;
-      border: none;
-      outline: none;
-      padding: 16px 20px 16px 48px;
-      font-size: 15px;
-      font-family: inherit;
-      background: transparent;
-    }
     .search-wrap { position: relative; flex: 1; }
     .search-wrap::before {
-      content: "🔍";
-      position: absolute;
-      left: 18px;
-      top: 50%;
-      transform: translateY(-50%);
-      font-size: 15px;
-      opacity: 0.6;
+      content: "🔍"; position: absolute; left: 18px; top: 50%;
+      transform: translateY(-50%); font-size: 15px; opacity: 0.6;
+    }
+    .search-box input {
+      width: 100%; border: none; outline: none;
+      padding: 16px 20px 16px 48px; font-size: 15px;
+      font-family: inherit; background: transparent;
     }
     .search-box button {
-      background: var(--primary);
-      color: white;
-      border: none;
-      padding: 0 26px;
-      font-weight: 600;
-      font-size: 15px;
-      cursor: pointer;
-      font-family: inherit;
-      transition: background 0.2s;
+      background: var(--primary); color: white; border: none;
+      padding: 0 26px; font-weight: 600; font-size: 15px;
+      cursor: pointer; font-family: inherit; transition: 0.2s;
+      white-space: nowrap;
     }
     .search-box button:hover { background: #d14e22; }
-    .search-box button:disabled {
-      opacity: 0.7;
-      cursor: not-allowed;
-    }
+    .search-box button:disabled { opacity: 0.65; cursor: not-allowed; }
 
     .examples {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      justify-content: center;
-      margin-top: 16px;
-      font-size: 13px;
-      color: var(--muted);
+      display: flex; flex-wrap: wrap; gap: 8px;
+      justify-content: center; margin-top: 16px;
+      font-size: 13px; color: var(--muted);
     }
     .examples button {
-      background: white;
-      border: 1px solid var(--border);
-      border-radius: 999px;
-      padding: 6px 14px;
-      cursor: pointer;
-      font-family: inherit;
-      font-size: 13px;
-      transition: 0.15s;
+      background: white; border: 1px solid var(--border);
+      border-radius: 999px; padding: 6px 14px; cursor: pointer;
+      font-family: inherit; font-size: 13px; transition: 0.15s;
     }
-    .examples button:hover {
-      border-color: var(--primary);
-      color: var(--primary);
-    }
+    .examples button:hover { border-color: var(--primary); color: var(--primary); }
 
-    /* Results */
     .results-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin: 40px 0 18px;
-      font-size: 14px;
-      color: var(--muted);
+      display: flex; justify-content: space-between; align-items: center;
+      margin: 40px 0 18px; font-size: 14px; color: var(--muted);
     }
-
     .grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
       gap: 20px;
     }
-
     .card {
-      background: var(--card);
-      border-radius: var(--radius);
-      border: 1px solid var(--border);
-      overflow: hidden;
-      transition: 0.25s;
-      cursor: pointer;
+      background: var(--card); border-radius: var(--radius);
+      border: 1px solid var(--border); overflow: hidden;
+      transition: 0.25s; cursor: pointer;
     }
     .card:hover {
       transform: translateY(-4px);
       box-shadow: 0 16px 40px -20px rgba(26,47,54,0.25);
     }
     .thumb {
-      aspect-ratio: 16/9;
-      background: #ddd;
-      position: relative;
-      overflow: hidden;
+      aspect-ratio: 16/9; background: #ddd;
+      position: relative; overflow: hidden;
     }
     .thumb img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      transition: 0.4s;
+      width: 100%; height: 100%; object-fit: cover; transition: 0.4s;
     }
     .card:hover .thumb img { transform: scale(1.04); }
     .duration {
-      position: absolute;
-      bottom: 8px;
-      right: 8px;
-      background: rgba(0,0,0,0.8);
-      color: white;
-      font-size: 12px;
-      padding: 2px 6px;
-      border-radius: 4px;
+      position: absolute; bottom: 8px; right: 8px;
+      background: rgba(0,0,0,0.8); color: white;
+      font-size: 12px; padding: 2px 6px; border-radius: 4px;
     }
     .card-body { padding: 14px; }
     .card-title {
-      font-weight: 600;
-      font-size: 15px;
-      line-height: 1.35;
+      font-weight: 600; font-size: 15px; line-height: 1.35;
       margin-bottom: 6px;
-      display: -webkit-box;
-      -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical;
-      overflow: hidden;
+      display: -webkit-box; -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical; overflow: hidden;
     }
-    .card-meta {
-      font-size: 13px;
-      color: var(--muted);
-    }
+    .card-meta { font-size: 13px; color: var(--muted); }
 
-    .empty, .loading, .error {
-      text-align: center;
-      padding: 50px 20px;
-      color: var(--muted);
+    .status-box {
+      text-align: center; padding: 50px 20px;
+      color: var(--muted); font-size: 15px; line-height: 1.6;
     }
-    .loading { color: var(--primary); }
+    .status-box.error { color: #c0392b; }
+    .status-box.loading { color: var(--primary); }
 
-    /* Player modal */
     .modal {
-      position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,0.75);
-      display: none;
-      align-items: center;
-      justify-content: center;
-      z-index: 100;
-      padding: 16px;
+      position: fixed; inset: 0; background: rgba(0,0,0,0.75);
+      display: none; align-items: center; justify-content: center;
+      z-index: 100; padding: 16px;
     }
     .modal.open { display: flex; }
     .modal-content {
-      background: white;
-      border-radius: 16px;
-      max-width: 900px;
-      width: 100%;
-      overflow: hidden;
+      background: white; border-radius: 16px;
+      max-width: 900px; width: 100%; overflow: hidden;
     }
     .modal-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 12px 16px;
-      border-bottom: 1px solid var(--border);
-      gap: 12px;
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 12px 16px; border-bottom: 1px solid var(--border); gap: 12px;
     }
     .modal-header strong {
-      font-size: 15px;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
+      font-size: 15px; white-space: nowrap;
+      overflow: hidden; text-overflow: ellipsis;
     }
     .modal-header button {
-      background: none;
-      border: none;
-      font-size: 24px;
-      cursor: pointer;
-      line-height: 1;
-      flex-shrink: 0;
+      background: none; border: none; font-size: 24px;
+      cursor: pointer; line-height: 1; flex-shrink: 0;
     }
-    .player-frame {
-      aspect-ratio: 16/9;
-      background: #000;
-    }
-    .player-frame iframe {
-      width: 100%;
-      height: 100%;
-      border: none;
+    .player-frame { aspect-ratio: 16/9; background: #000; }
+    .player-frame iframe { width: 100%; height: 100%; border: none; }
+
+    .debug {
+      margin-top: 12px; font-size: 12px; color: #888;
+      word-break: break-all; max-width: 600px; margin-left: auto; margin-right: auto;
     }
   </style>
 </head>
@@ -272,17 +172,16 @@
 
     <div class="search-box">
       <div class="search-wrap">
-        <input id="q" type="text" placeholder="Bir konu, kanal ya da video ara" 
-               onkeydown="if(event.key==='Enter') search()" />
+        <input id="q" type="text" placeholder="Bir konu, kanal ya da video ara" autocomplete="off" />
       </div>
-      <button id="btn" onclick="search()">Ara →</button>
+      <button id="btn" type="button">Ara →</button>
     </div>
 
     <div class="examples">
       <span>ÖRNEKLER</span>
-      <button onclick="quick('istanbul yürüyüşleri')">istanbul yürüyüşleri</button>
-      <button onclick="quick('Türkçe caz')">Türkçe caz</button>
-      <button onclick="quick('kahve demleme')">kahve demleme</button>
+      <button type="button" data-q="istanbul yürüyüşleri">istanbul yürüyüşleri</button>
+      <button type="button" data-q="Türkçe caz">Türkçe caz</button>
+      <button type="button" data-q="kahve demleme">kahve demleme</button>
     </div>
 
     <div class="results-header">
@@ -291,15 +190,14 @@
     </div>
 
     <div id="grid" class="grid"></div>
-    <div id="status" class="empty">Bir şeyler ara...</div>
+    <div id="status" class="status-box">Bir şeyler ara...</div>
   </div>
 
-  <!-- Player -->
   <div class="modal" id="modal">
     <div class="modal-content">
       <div class="modal-header">
         <strong id="modalTitle">Video</strong>
-        <button onclick="closePlayer()">×</button>
+        <button type="button" id="closeBtn">×</button>
       </div>
       <div class="player-frame">
         <iframe id="frame" allowfullscreen
@@ -310,62 +208,92 @@
   </div>
 
   <script>
-    // Senin Replit backend'in
+    // Senin çalışan API adresin
     const API = "https://compatible-indelible-webportal--boshsjs.replit.app/api/youtube/search";
 
-    const grid = document.getElementById("grid");
-    const status = document.getElementById("status");
-    const count = document.getElementById("count");
-    const btn = document.getElementById("btn");
+    const qInput   = document.getElementById("q");
+    const btn      = document.getElementById("btn");
+    const grid     = document.getElementById("grid");
+    const statusEl = document.getElementById("status");
+    const countEl  = document.getElementById("count");
+    const modal    = document.getElementById("modal");
+    const frame    = document.getElementById("frame");
+    const modalTitle = document.getElementById("modalTitle");
 
-    function quick(text) {
-      document.getElementById("q").value = text;
-      search();
+    // HTML escape (XSS ve tırnak hatası önler)
+    function esc(str) {
+      if (!str) return "";
+      return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+    }
+
+    function setStatus(text, type) {
+      statusEl.innerHTML = text;
+      statusEl.className = "status-box" + (type ? " " + type : "");
+      statusEl.style.display = text ? "block" : "none";
     }
 
     async function search() {
-      const query = document.getElementById("q").value.trim();
+      const query = qInput.value.trim();
       if (query.length < 2) {
-        status.textContent = "En az 2 karakter yaz.";
-        status.className = "empty";
+        setStatus("En az 2 karakter yaz.", "error");
         grid.innerHTML = "";
-        count.textContent = "Arama yapın";
+        countEl.textContent = "Arama yapın";
         return;
       }
 
       btn.disabled = true;
       btn.textContent = "Aranıyor...";
-      status.textContent = "Aranıyor...";
-      status.className = "loading";
+      setStatus("Aranıyor, lütfen bekleyin...", "loading");
       grid.innerHTML = "";
-      count.textContent = "Yükleniyor...";
+      countEl.textContent = "Yükleniyor...";
+
+      const url = API + "?q=" + encodeURIComponent(query);
+      console.log("İstek atılıyor:", url);
 
       try {
-        const res = await fetch(`\( {API}?q= \){encodeURIComponent(query)}`);
-        if (!res.ok) throw new Error("Sunucu hatası: " + res.status);
+        const res = await fetch(url, {
+          method: "GET",
+          headers: { "Accept": "application/json" },
+          mode: "cors",
+          cache: "no-store"
+        });
+
+        console.log("HTTP durum:", res.status);
+
+        if (!res.ok) {
+          throw new Error("Sunucu " + res.status + " döndü");
+        }
 
         const data = await res.json();
-        const results = data.results || [];
+        console.log("Gelen veri:", data);
+
+        const results = Array.isArray(data.results) ? data.results : [];
 
         if (results.length === 0) {
-          status.textContent = "Sonuç bulunamadı.";
-          status.className = "empty";
-          count.textContent = "0 sonuç";
+          setStatus("Sonuç bulunamadı. Başka bir kelime dene.", "");
+          countEl.textContent = "0 sonuç";
         } else {
-          status.textContent = "";
-          status.className = "";
-          count.textContent = results.length + " sonuç";
+          setStatus("", "");
+          countEl.textContent = results.length + " sonuç";
           render(results);
         }
       } catch (err) {
-        console.error(err);
-        status.innerHTML = `
-          Arama yapılamadı.<br>
-          <small style="opacity:0.7">CORS veya sunucu hatası olabilir.<br>
-          Bu HTML dosyasını kendi Replit domain’inde açmayı dene.</small>
-        `;
-        status.className = "error";
-        count.textContent = "Hata";
+        console.error("Hata:", err);
+        setStatus(
+          "Arama yapılamadı.<br><br>" +
+          "<b>Olası sebepler:</b><br>" +
+          "• HTML dosyasını bilgisayardan (file://) açıyorsan tarayıcı engelliyor olabilir<br>" +
+          "• İnternet bağlantısı veya Replit sunucusu geçici olarak kapalı<br><br>" +
+          "<small>Çözüm: Bu HTML’i Replit’e yükle veya Netlify / GitHub Pages’e koy.</small>" +
+          "<div class='debug'>Hata: " + esc(err.message) + "</div>",
+          "error"
+        );
+        countEl.textContent = "Hata";
       } finally {
         btn.disabled = false;
         btn.textContent = "Ara →";
@@ -373,39 +301,70 @@
     }
 
     function render(list) {
-      grid.innerHTML = list.map(v => `
-        <div class="card" onclick="play('\( {v.id}', \` \){(v.title || '').replace(/`/g, "'")}\`)">
-          <div class="thumb">
-            <img src="${v.thumbnail || ''}" alt="" 
-                 onerror="this.src='https://via.placeholder.com/480x270?text=Video'">
-            \( {v.duration ? `<span class="duration"> \){v.duration}</span>` : ''}
-          </div>
-          <div class="card-body">
-            <div class="card-title">${v.title || 'Başlıksız'}</div>
-            <div class="card-meta">
-              ${v.channel || ''} 
-              ${v.views ? ' · ' + v.views : ''}
-              ${v.publishedAt ? ' · ' + v.publishedAt : ''}
+      let html = "";
+      for (let i = 0; i < list.length; i++) {
+        const v = list[i];
+        const id = esc(v.id || "");
+        const title = esc(v.title || "Başlıksız");
+        const channel = esc(v.channel || "");
+        const views = esc(v.views || "");
+        const published = esc(v.publishedAt || "");
+        const duration = esc(v.duration || "");
+        const thumb = esc(v.thumbnail || "https://via.placeholder.com/480x270?text=Video");
+
+        const meta = [channel, views, published].filter(Boolean).join(" · ");
+
+        html += `
+          <div class="card" data-id="\( {id}" data-title=" \){title}">
+            <div class="thumb">
+              <img src="${thumb}" alt="" loading="lazy"
+                   onerror="this.src='https://via.placeholder.com/480x270?text=Video'">
+              ${duration ? '<span class="duration">' + duration + '</span>' : ''}
             </div>
-          </div>
-        </div>
-      `).join("");
+            <div class="card-body">
+              <div class="card-title">${title}</div>
+              <div class="card-meta">${meta}</div>
+            </div>
+          </div>`;
+      }
+      grid.innerHTML = html;
+
+      // Kart tıklama
+      grid.querySelectorAll(".card").forEach(function(card) {
+        card.addEventListener("click", function() {
+          play(card.getAttribute("data-id"), card.getAttribute("data-title"));
+        });
+      });
     }
 
     function play(id, title) {
-      document.getElementById("modalTitle").textContent = title;
-      document.getElementById("frame").src = `https://www.youtube.com/embed/${id}?autoplay=1`;
-      document.getElementById("modal").classList.add("open");
+      if (!id) return;
+      modalTitle.textContent = title || "Video";
+      frame.src = "https://www.youtube.com/embed/" + id + "?autoplay=1";
+      modal.classList.add("open");
     }
 
     function closePlayer() {
-      document.getElementById("modal").classList.remove("open");
-      document.getElementById("frame").src = "";
+      modal.classList.remove("open");
+      frame.src = "";
     }
 
-    // Modal dışına tıklayınca kapat
-    document.getElementById("modal").addEventListener("click", (e) => {
-      if (e.target.id === "modal") closePlayer();
+    // Olaylar
+    btn.addEventListener("click", search);
+    qInput.addEventListener("keydown", function(e) {
+      if (e.key === "Enter") search();
+    });
+    document.getElementById("closeBtn").addEventListener("click", closePlayer);
+    modal.addEventListener("click", function(e) {
+      if (e.target === modal) closePlayer();
+    });
+
+    // Örnek butonlar
+    document.querySelectorAll(".examples button[data-q]").forEach(function(b) {
+      b.addEventListener("click", function() {
+        qInput.value = b.getAttribute("data-q");
+        search();
+      });
     });
   </script>
 </body>
