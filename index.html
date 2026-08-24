@@ -151,6 +151,53 @@
       }
       .feed-description { margin: 10px 0 0; color: var(--muted); font-size: 14px; }
       .result-count { color: var(--muted); font-size: 13px; white-space: nowrap; }
+      .inline-player {
+        position: relative;
+        width: 100%;
+        margin: 0 0 30px;
+        padding: 14px;
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        background: linear-gradient(135deg, rgba(32,32,38,.98), rgba(21,21,25,.98));
+        box-shadow: 0 18px 55px rgba(0,0,0,.28);
+      }
+      .inline-player[hidden] { display: none; }
+      .inline-player-frame {
+        width: min(900px, 100%);
+        margin: 0 auto;
+        aspect-ratio: 16 / 9;
+        overflow: hidden;
+        border-radius: 11px;
+        background: #000;
+      }
+      .inline-player-frame iframe { width: 100%; height: 100%; display: block; border: 0; }
+      .inline-player-details {
+        display: flex;
+        align-items: end;
+        justify-content: space-between;
+        gap: 18px;
+        width: min(900px, 100%);
+        margin: 0 auto;
+        padding: 14px 2px 2px;
+      }
+      .inline-player-details h2 { margin: 0 0 6px; font-family: Manrope, sans-serif; font-size: 19px; }
+      .inline-player-details p { margin: 0; color: var(--muted); font-size: 13px; }
+      .inline-player-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+      .inline-player-actions button, .inline-player-actions a {
+        padding: 8px 12px;
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        color: var(--text);
+        background: var(--surface-2);
+        text-decoration: none;
+        font-size: 13px;
+      }
+      .inline-player-actions button:hover, .inline-player-actions a:hover,
+      .inline-player-actions .selected {
+        border-color: var(--accent);
+        color: white;
+        background: var(--accent-soft);
+      }
       .categories {
         display: flex;
         gap: 9px;
@@ -411,6 +458,12 @@
         main { width: min(100% - 26px, 1500px); padding-top: 24px; }
         .feed-heading { display: block; }
         .result-count { display: block; margin-top: 15px; }
+        .inline-player { margin: 0 -1px 24px; padding: 8px; border-radius: 11px; }
+        .inline-player-details { display: block; padding: 10px 3px 2px; }
+        .inline-player-details h2 { font-size: 15px; }
+        .inline-player-details p { font-size: 11px; }
+        .inline-player-actions { margin-top: 10px; }
+        .inline-player-actions button, .inline-player-actions a { padding: 7px 10px; font-size: 12px; }
         .video-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 23px 10px; }
         .video-info { gap: 7px; padding-top: 8px; }
         .channel-avatar { display: none; }
@@ -433,6 +486,21 @@
       </header>
 
       <main>
+        <section class="inline-player" id="inlinePlayer" aria-label="Video oynatıcı" hidden>
+          <div class="inline-player-frame" id="playerFrame"></div>
+          <div class="inline-player-details">
+            <div>
+              <h2 id="playerTitle">Video seçilmedi</h2>
+              <p id="playerMeta">İzlemek için aşağıdaki videolardan birini seç.</p>
+            </div>
+            <div class="inline-player-actions">
+              <button id="favoriteButton" type="button">♡ Favorile</button>
+              <button id="shareButton" type="button">↗ Paylaş</button>
+              <a id="youtubeButton" target="_blank" rel="noopener noreferrer">YouTube'da Aç</a>
+              <button id="closePlayerButton" type="button">× Kapat</button>
+            </div>
+          </div>
+        </section>
         <section class="feed-heading">
           <div>
             <div class="eyebrow"><span class="live-dot"></span><span id="eyebrowText">Canlı keşif akışı</span></div>
@@ -463,21 +531,6 @@
       </nav>
     </div>
 
-    <div class="modal" id="playerModal" role="dialog" aria-modal="true" aria-labelledby="playerTitle">
-      <div class="player-panel">
-        <div class="player-top"><button class="close-button" id="closePlayerButton" type="button" aria-label="Oynatıcıyı kapat">×</button></div>
-        <div class="player-frame" id="playerFrame"></div>
-        <div class="player-details">
-          <h2 id="playerTitle">Video seçilmedi</h2>
-          <p id="playerMeta">İzlemek için aşağıdaki videolardan birini seç.</p>
-          <div class="player-actions">
-            <button id="favoriteButton" type="button">♡ Favorile</button>
-            <button id="shareButton" type="button">↗ Paylaş</button>
-            <a id="youtubeButton" target="_blank" rel="noopener noreferrer">YouTube'da Aç</a>
-          </div>
-        </div>
-      </div>
-    </div>
     <div class="toast" id="toast" role="status"></div>
 
     <script>
@@ -504,6 +557,10 @@
         "Spor": "Türkiye spor gündemi maç özetleri",
         "Eğlence": "Türkçe eğlence videoları trend"
       };
+      const DISCOVERY_VARIATIONS = [
+        "en yeni", "bugün", "son yüklenenler", "trend", "günün seçkisi",
+        "keşfet", "popüler", "bu hafta"
+      ];
 
       const FALLBACK_VIDEOS = [
         { id: "rNFsWlJm09k", title: "Yeni Çıkan Türkçe Şarkılar", channel: "Türkiye Müzik", views: "Günün seçkisi", age: "Yeni", duration: "8:34", category: "Müzik" },
@@ -529,6 +586,7 @@
       let mode = "home";
       let searchTerm = "";
       let remoteQuery = "";
+      let isSearchMode = false;
       let page = 1;
       let hasMore = false;
       let loading = false;
@@ -637,6 +695,36 @@
         throw lastError || new Error("Açık video kaynakları şu an cevap vermiyor.");
       }
 
+      async function fetchVideoBatch(query, startPage, targetCount = 10) {
+        const collected = [];
+        const seen = new Set();
+        let currentPage = startPage;
+        let attempts = 0;
+
+        while (collected.length < targetCount && attempts < 5) {
+          const pageResults = await Promise.allSettled([
+            fetchVideos(query, currentPage),
+            fetchVideos(query, currentPage + 1)
+          ]);
+          pageResults.forEach((result) => {
+            if (result.status !== "fulfilled") return;
+            result.value.forEach((video) => {
+              if (!seen.has(video.id)) {
+                seen.add(video.id);
+                collected.push(video);
+              }
+            });
+          });
+          currentPage += 2;
+          attempts += 2;
+          if (!pageResults.some((result) => result.status === "fulfilled" && result.value.length)) break;
+        }
+        return {
+          videos: collected.slice(0, targetCount),
+          nextPage: currentPage
+        };
+      }
+
       function visibleVideos() {
         let source;
         if (mode === "favorites") source = savedVideos(STORAGE.favorites);
@@ -708,7 +796,7 @@
           title.textContent = "İzleme geçmişin";
           description.textContent = "Son izlediğin videolara hızlıca geri dön.";
           eyebrow.textContent = "Son izlenenler";
-        } else if (remoteQuery) {
+        } else if (isSearchMode && remoteQuery) {
           title.textContent = `"${remoteQuery}" için sonuçlar`;
           description.textContent = "Açık video kaynaklarından güncel arama sonuçları.";
           eyebrow.textContent = "Arama sonuçları";
@@ -735,14 +823,20 @@
           page = 1;
           hasMore = false;
         }
-        remoteQuery = query;
+        const categoryFeed = !isSearchMode && query === CATEGORY_QUERIES[activeCategory];
+        const requestQuery = categoryFeed
+          ? `${query} ${DISCOVERY_VARIATIONS[Math.floor(Math.random() * DISCOVERY_VARIATIONS.length)]}`
+          : query;
+        remoteQuery = requestQuery;
         renderVideos();
         try {
-          const results = await fetchVideos(query, page);
+          const batch = await fetchVideoBatch(requestQuery, append ? page : 1, 10);
+          const results = batch.videos;
+          page = batch.nextPage;
           const merged = append ? [...feedVideos, ...results] : results;
           feedVideos = Array.from(new Map(merged.map((video) => [video.id, video])).values()).slice(0, 80);
           rememberVideos(feedVideos);
-          hasMore = results.length >= 12 && feedVideos.length < 80;
+          hasMore = results.length >= 6 && feedVideos.length < 80;
           if (!append) showToast("Güncel içerikler yenilendi.");
         } catch (_) {
           if (!feedVideos.length) {
@@ -765,8 +859,8 @@
         rememberVideos([activeVideo]);
         const history = getStored(STORAGE.history).filter((item) => item !== id);
         setStored(STORAGE.history, [id, ...history].slice(0, 40));
-        document.querySelector("#playerModal").classList.add("open");
-        document.body.style.overflow = "hidden";
+        const inlinePlayer = document.querySelector("#inlinePlayer");
+        inlinePlayer.hidden = false;
         document.querySelector("#playerTitle").textContent = activeVideo.title;
         document.querySelector("#playerMeta").textContent = [activeVideo.channel, activeVideo.views, activeVideo.age].filter(Boolean).join(" • ");
         document.querySelector("#youtubeButton").href = `https://www.youtube.com/watch?v=${encodeURIComponent(id)}`;
@@ -776,8 +870,7 @@
       }
 
       function closePlayer() {
-        document.querySelector("#playerModal").classList.remove("open");
-        document.body.style.overflow = "";
+        document.querySelector("#inlinePlayer").hidden = true;
         document.querySelector("#playerFrame").innerHTML = "";
         activeVideo = null;
       }
@@ -817,6 +910,7 @@
           return;
         }
         mode = "home";
+        isSearchMode = true;
         activeCategory = "Tümü";
         searchTerm = "";
         document.querySelector("#homeButton").click();
@@ -828,6 +922,7 @@
         if (!button || loading) return;
         activeCategory = button.dataset.category;
         mode = "home";
+        isSearchMode = false;
         searchTerm = "";
         searchInput.value = "";
         renderCategories();
@@ -837,6 +932,7 @@
         const favorite = event.target.closest("[data-favorite-id]");
         if (favorite) {
           event.stopPropagation();
+          event.preventDefault();
           toggleFavorite(favorite.dataset.favoriteId);
           return;
         }
@@ -863,16 +959,16 @@
         } catch (_) {}
       });
       document.querySelector("#refreshButton").addEventListener("click", () => {
-        if (mode === "home") loadFeed(CATEGORY_QUERIES[activeCategory]);
+        if (mode === "home") {
+          isSearchMode = false;
+          loadFeed(CATEGORY_QUERIES[activeCategory]);
+        }
         else showToast("Yenilemek için Ana Sayfa'ya dön.");
       });
       document.querySelector("#homeButton").addEventListener("click", () => setMode("home"));
       document.querySelector("#favoritesButton").addEventListener("click", () => setMode("favorites"));
       document.querySelector("#historyButton").addEventListener("click", () => setMode("history"));
       document.querySelector("#closePlayerButton").addEventListener("click", closePlayer);
-      document.querySelector("#playerModal").addEventListener("click", (event) => {
-        if (event.target.id === "playerModal") closePlayer();
-      });
       document.addEventListener("keydown", (event) => { if (event.key === "Escape") closePlayer(); });
       returnHomeButton.addEventListener("click", () => document.querySelector("#homeButton").click());
 
