@@ -196,8 +196,12 @@
   </div>
 
   <script>
-    // Invidious Public API Endpoints
-    const API_BASE = "https://invidious.nerdvpn.de/api/v1/search";
+    // Piped API Sunucuları (Biri yanıt vermezse diğeri devreye girer)
+    const PIPED_NODES = [
+      "https://pipedapi.kavin.rocks",
+      "https://api.piped.private.coffee",
+      "https://pipedapi.mha.fi"
+    ];
 
     const qInput = document.getElementById("q");
     const btn = document.getElementById("btn");
@@ -219,7 +223,7 @@
     }
 
     function formatDuration(sec) {
-      if (!sec) return "";
+      if (!sec || sec < 0) return "";
       const m = Math.floor(sec / 60);
       const s = Math.floor(sec % 60);
       return m + ":" + (s < 10 ? "0" : "") + s;
@@ -238,6 +242,23 @@
       statusEl.style.display = text ? "block" : "none";
     }
 
+    // Yedekli API İsteği Fonksiyonu
+    async function fetchFromPiped(query) {
+      let lastError;
+      for (const node of PIPED_NODES) {
+        try {
+          const url = `${node}/search?q=${encodeURIComponent(query)}&filter=all`;
+          const res = await fetch(url);
+          if (res.ok) {
+            return await res.json();
+          }
+        } catch (err) {
+          lastError = err;
+        }
+      }
+      throw lastError || new Error("Hiçbir API sunucusuna ulaşılamadı.");
+    }
+
     async function search() {
       const query = qInput.value.trim();
       if (query.length < 2) {
@@ -254,23 +275,24 @@
       countEl.textContent = "Yükleniyor...";
 
       try {
-        const url = `${API_BASE}?q=${encodeURIComponent(query)}&type=video`;
-        const res = await fetch(url);
-
-        if (!res.ok) throw new Error("API sunucusu yanıt vermedi (" + res.status + ")");
-
-        const data = await res.json();
+        const data = await fetchFromPiped(query);
+        const items = Array.isArray(data.items) ? data.items : [];
         
-        // Invidious API yanıtını mevcut kart yapısına uyarlıyoruz:
-        const results = (Array.isArray(data) ? data : []).map(v => ({
-          id: v.videoId,
-          title: v.title,
-          channel: v.author,
-          views: formatViews(v.viewCount),
-          publishedAt: v.publishedText,
-          duration: formatDuration(v.lengthSeconds),
-          thumbnail: `https://i.ytimg.com/vi/${v.videoId}/mqdefault.jpg`
-        })).filter(v => v.id);
+        // Piped verisini uygun formata dönüştür ve sadece videoları al
+        const results = items
+          .filter(v => v.type === "stream")
+          .map(v => {
+            const videoId = v.url ? v.url.replace("/watch?v=", "") : "";
+            return {
+              id: videoId,
+              title: v.title,
+              channel: v.uploaderName,
+              views: formatViews(v.views),
+              publishedAt: v.uploadedDate || "",
+              duration: formatDuration(v.duration),
+              thumbnail: v.thumbnail || `https://i.ytimg.com/vi/${videoId}/mqdefault.jpg`
+            };
+          }).filter(v => v.id);
 
         if (results.length === 0) {
           setStatus("Sonuç bulunamadı. Başka bir kelime dene.", "");
