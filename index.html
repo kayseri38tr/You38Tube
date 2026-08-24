@@ -432,6 +432,12 @@
         { type: "invidious", url: "https://invidious.nerdvpn.de/api/v1/search" },
         { type: "invidious", url: "https://inv.tux.pizza/api/v1/search" }
       ];
+       const TRENDING_ENDPOINTS = [
+         { type: "piped", url: "https://pipedapi.kavin.rocks/trending?region=TR" },
+         { type: "piped", url: "https://api.piped.private.coffee/trending?region=TR" },
+         { type: "invidious", url: "https://invidious.nerdvpn.de/api/v1/trending?region=TR" },
+         { type: "invidious", url: "https://inv.tux.pizza/api/v1/trending?region=TR" }
+       ];
 
       // Çerez Yardımcı Fonksiyonları (Siteniz için çerez yönetimi eklenmiştir)
       function setCookie(name, value, days) {
@@ -497,6 +503,8 @@
        const HOME_PAGE_SIZE = 12;
        let homeVisibleCount = HOME_PAGE_SIZE;
        let homeVideos = videos.slice();
+       let homeIsTrending = false;
+       let homeLoading = true;
        for (let index = homeVideos.length - 1; index > 0; index -= 1) {
          const randomIndex = Math.floor(Math.random() * (index + 1));
          [homeVideos[index], homeVideos[randomIndex]] = [homeVideos[randomIndex], homeVideos[index]];
@@ -557,6 +565,51 @@
         return `${views} görüntüleme`;
       }
 
+       function getVideoId(item) {
+         let id = item.videoId || "";
+         if (!id && item.url) {
+           const match = item.url.match(/[?&]v=([^&]+)/);
+           id = match ? match[1] : item.url.replace("/watch?v=", "").split("&")[0];
+         }
+         return id;
+       }
+
+       async function fetchTrending() {
+         let lastError;
+
+         for (const endpoint of TRENDING_ENDPOINTS) {
+           try {
+             const controller = new AbortController();
+             const timeoutId = setTimeout(() => controller.abort(), 5500);
+             const fetchUrl = endpoint.type === "piped"
+               ? endpoint.url
+               : `${endpoint.url}&type=video`;
+             const response = await fetch(fetchUrl, { signal: controller.signal });
+             clearTimeout(timeoutId);
+
+             if (!response.ok) continue;
+
+             const data = await response.json();
+             const rawItems = Array.isArray(data) ? data : (data.items || []);
+             const results = rawItems.map((item) => ({
+               id: getVideoId(item),
+               title: item.title || "Başlıksız",
+               channel: item.uploaderName || item.author || "Kanal",
+               views: formatViews(item.views ?? item.viewCount),
+               age: item.uploadedDate || item.publishedText || "",
+               duration: formatDuration(item.duration ?? item.lengthSeconds),
+               category: "Trend"
+             })).filter((video) => video.id);
+
+             if (results.length) return results.slice(0, 100);
+           } catch (error) {
+             lastError = error;
+           }
+         }
+
+         throw lastError || new Error("Türkiye trend videolarına şu an erişilemiyor.");
+       }
+
       async function fetchSearch(query, page = 1) {
         let lastError;
 
@@ -578,11 +631,7 @@
             if (!rawItems.length) continue;
 
             return rawItems.map((item) => {
-              let id = item.videoId || "";
-              if (!id && item.url) {
-                const match = item.url.match(/[?&]v=([^&]+)/);
-                id = match ? match[1] : item.url.replace("/watch?v=", "").split("&")[0];
-              }
+               const id = getVideoId(item);
 
               return {
                 id,
@@ -605,7 +654,9 @@
       function renderCategories() {
         const sourceCategories = remoteVideos
           ? ["Tümü", "Arama"]
-          : categories;
+           : homeIsTrending
+             ? ["Tümü", "Trend"]
+             : categories;
         categoriesEl.innerHTML = sourceCategories.map((category) => `
           <button class="category ${activeCategory === category ? "active" : ""}" type="button" data-category="${category}">
             ${category}
@@ -614,17 +665,23 @@
       }
 
       function renderVideos() {
-         const allVisibleVideos = filteredVideos();
          const isHomeList = !remoteVideos && mode === "home";
+         const allVisibleVideos = homeLoading && isHomeList ? [] : filteredVideos();
          const visibleVideos = isHomeList
            ? allVisibleVideos.slice(0, homeVisibleCount)
            : allVisibleVideos;
-        resultCount.textContent = remoteVideos && remoteQuery
-          ? `${visibleVideos.length} / ${remoteVideos.length} video`
-           : isHomeList && visibleVideos.length < allVisibleVideos.length
-             ? `${visibleVideos.length} / ${allVisibleVideos.length} video`
-             : `${visibleVideos.length} video`;
-        emptyState.style.display = visibleVideos.length ? "none" : "block";
+         if (homeLoading && isHomeList) {
+           resultCount.textContent = "Türkiye trend videoları yükleniyor...";
+           emptyState.innerHTML = "<strong>Güncel videolar getiriliyor...</strong>Türkiye trend listesi hazırlanıyor.";
+           emptyState.style.display = "block";
+         } else {
+           resultCount.textContent = remoteVideos && remoteQuery
+             ? `${visibleVideos.length} / ${remoteVideos.length} video`
+             : isHomeList && visibleVideos.length < allVisibleVideos.length
+               ? `${visibleVideos.length} / ${allVisibleVideos.length} video`
+               : `${visibleVideos.length} video`;
+           emptyState.style.display = visibleVideos.length ? "none" : "block";
+         }
         grid.innerHTML = visibleVideos.map((video) => `
           <article class="video-card" tabindex="0" role="button" data-video-id="${video.id}" aria-label="${video.title}">
             <div class="thumbnail-wrap">
@@ -663,6 +720,24 @@
            ? "Yükleniyor..."
            : "Daha fazla yükle";
       }
+
+       async function loadTrendingVideos() {
+         renderVideos();
+         try {
+           const results = await fetchTrending();
+           homeVideos = results;
+           homeIsTrending = true;
+           homeVisibleCount = HOME_PAGE_SIZE;
+           activeCategory = "Tümü";
+           renderCategories();
+         } catch (error) {
+           homeIsTrending = false;
+           console.warn("Türkiye trend videoları alınamadı, yedek liste kullanılıyor:", error.message);
+         } finally {
+           homeLoading = false;
+           renderVideos();
+         }
+       }
 
       function openVideo(id) {
         activeVideo = (remoteVideos || homeVideos).find((video) => video.id === id);
@@ -705,6 +780,8 @@
            searchTerm = "";
            mode = "home";
             homeVisibleCount = HOME_PAGE_SIZE;
+            activeCategory = "Tümü";
+            renderCategories();
            renderVideos();
            return;
          }
@@ -804,6 +881,7 @@
 
       renderCategories();
       renderVideos();
+       loadTrendingVideos();
     </script>
   </body>
 </html>
