@@ -104,11 +104,10 @@
 
       main { width: min(1500px, calc(100% - 48px)); margin: 0 auto; padding-top: 26px; }
       .inline-player {
-        position: sticky;
-        top: 76px;
-        z-index: 9;
-        width: min(980px, 100%);
-        margin: 0 auto 28px;
+        position: relative;
+        z-index: 1;
+        width: min(900px, 100%);
+        margin: 0 auto 78px;
         padding: 10px;
         border: 1px solid var(--line);
         border-radius: 16px;
@@ -329,8 +328,7 @@
         .header-action { display: none; }
         main { width: min(100% - 26px, 1500px); padding-top: 20px; }
         .inline-player {
-          top: 62px;
-          margin-bottom: 20px;
+          margin-bottom: 58px;
           padding: 6px;
           border-radius: 12px;
         }
@@ -363,7 +361,7 @@
       </header>
 
       <main>
-        <section class="inline-player" aria-label="Video oynatıcı">
+        <section class="inline-player" id="inlinePlayer" aria-label="Video oynatıcı" hidden>
           <div class="inline-player-frame" id="playerFrame"></div>
           <div class="inline-player-details">
             <div>
@@ -580,6 +578,7 @@
       function openVideo(id) {
         activeVideo = (remoteVideos || videos).find((video) => video.id === id);
         if (!activeVideo) return;
+        document.querySelector("#inlinePlayer").hidden = false;
         const history = getStored("youtune-history").filter((item) => item !== id);
         setStored("youtune-history", [id, ...history].slice(0, 30));
         
