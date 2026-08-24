@@ -104,11 +104,12 @@
 
       main { width: min(1500px, calc(100% - 48px)); margin: 0 auto; padding-top: 26px; }
       .inline-player {
-        position: relative;
-        z-index: 1;
+        position: sticky;
+        top: 76px;
+        z-index: 9;
         width: min(900px, 100%);
-        margin: 0 auto 78px;
-        padding: 10px;
+        margin: 0 auto;
+        padding: 10px 10px 76px;
         border: 1px solid var(--line);
         border-radius: 16px;
         background: rgba(24, 24, 24, .97);
@@ -128,6 +129,7 @@
         gap: 18px;
         padding: 14px 4px 2px;
       }
+      .inline-player-details { display: none; }
       .inline-player-details h2 { margin: 0 0 6px; font-size: 19px; }
       .inline-player-details p { margin: 0; color: var(--muted); font-size: 13px; }
       .inline-player-actions { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -328,8 +330,8 @@
         .header-action { display: none; }
         main { width: min(100% - 26px, 1500px); padding-top: 20px; }
         .inline-player {
-          margin-bottom: 58px;
-          padding: 6px;
+          top: 62px;
+          padding: 6px 6px 52px;
           border-radius: 12px;
         }
         .inline-player-frame { border-radius: 8px; }
@@ -678,7 +680,6 @@
 
       renderCategories();
       renderVideos();
-      openVideo(videos[0].id);
     </script>
   </body>
 </html>
