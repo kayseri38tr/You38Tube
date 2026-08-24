@@ -196,7 +196,8 @@
   </div>
 
   <script>
-    const API = "https://compatible-indelible-webportal--boshsjs.replit.app/api/youtube/search";
+    // Invidious Public API Endpoints
+    const API_BASE = "https://invidious.nerdvpn.de/api/v1/search";
 
     const qInput = document.getElementById("q");
     const btn = document.getElementById("btn");
@@ -215,6 +216,20 @@
         .replace(/>/g, "&gt;")
         .replace(/"/g, "&quot;")
         .replace(/'/g, "&#39;");
+    }
+
+    function formatDuration(sec) {
+      if (!sec) return "";
+      const m = Math.floor(sec / 60);
+      const s = Math.floor(sec % 60);
+      return m + ":" + (s < 10 ? "0" : "") + s;
+    }
+
+    function formatViews(views) {
+      if (!views) return "";
+      if (views >= 1000000) return (views / 1000000).toFixed(1) + "M izlenme";
+      if (views >= 1000) return (views / 1000).toFixed(0) + "B izlenme";
+      return views + " izlenme";
     }
 
     function setStatus(text, type) {
@@ -239,17 +254,23 @@
       countEl.textContent = "Yükleniyor...";
 
       try {
-        const res = await fetch(API + "?q=" + encodeURIComponent(query), {
-          method: "GET",
-          headers: { "Accept": "application/json" },
-          mode: "cors",
-          cache: "no-store"
-        });
+        const url = `${API_BASE}?q=${encodeURIComponent(query)}&type=video`;
+        const res = await fetch(url);
 
-        if (!res.ok) throw new Error("Sunucu " + res.status + " döndü");
+        if (!res.ok) throw new Error("API sunucusu yanıt vermedi (" + res.status + ")");
 
         const data = await res.json();
-        const results = Array.isArray(data.results) ? data.results : [];
+        
+        // Invidious API yanıtını mevcut kart yapısına uyarlıyoruz:
+        const results = (Array.isArray(data) ? data : []).map(v => ({
+          id: v.videoId,
+          title: v.title,
+          channel: v.author,
+          views: formatViews(v.viewCount),
+          publishedAt: v.publishedText,
+          duration: formatDuration(v.lengthSeconds),
+          thumbnail: `https://i.ytimg.com/vi/${v.videoId}/mqdefault.jpg`
+        })).filter(v => v.id);
 
         if (results.length === 0) {
           setStatus("Sonuç bulunamadı. Başka bir kelime dene.", "");
