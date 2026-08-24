@@ -998,6 +998,20 @@
          const id = getCollectionId(item);
          if (!id) throw new Error("Bu içerik için geçerli bir kimlik bulunamadı.");
          let lastError;
+         async function fetchCollectionRequest(url) {
+           const controller = new AbortController();
+           const timeoutId = setTimeout(() => controller.abort(), 20000);
+           try {
+             return await fetch(url, { signal: controller.signal });
+           } catch (error) {
+             if (error?.name === "AbortError") {
+               throw new Error("Oynatma listesi servisi zaman aşımına uğradı. Lütfen tekrar deneyin.");
+             }
+             throw error;
+           } finally {
+             clearTimeout(timeoutId);
+           }
+         }
          for (const endpoint of SEARCH_ENDPOINTS) {
            try {
              const baseUrl = endpoint.type === "piped"
@@ -1008,10 +1022,7 @@
                : endpoint.type === "piped"
                  ? `/channel/${encodeURIComponent(id)}`
                  : `/channels/${encodeURIComponent(id)}`;
-             const controller = new AbortController();
-             const timeoutId = setTimeout(() => controller.abort(), 7000);
-             const response = await fetch(`${baseUrl}${path}`, { signal: controller.signal });
-             clearTimeout(timeoutId);
+             const response = await fetchCollectionRequest(`${baseUrl}${path}`);
              if (!response.ok) continue;
              const data = await response.json();
              let rawVideos = [
@@ -1040,9 +1051,8 @@
                const nextPath = kind === "playlist"
                  ? `/nextpage/playlists/${encodeURIComponent(id)}`
                  : `/nextpage/channel/${encodeURIComponent(id)}`;
-               const nextResponse = await fetch(
-                 `${baseUrl}${nextPath}?nextpage=${encodeURIComponent(nextPage)}`,
-                 { signal: controller.signal }
+               const nextResponse = await fetchCollectionRequest(
+                 `${baseUrl}${nextPath}?nextpage=${encodeURIComponent(nextPage)}`
                );
                if (nextResponse.ok) {
                  const nextData = await nextResponse.json();
@@ -1056,9 +1066,8 @@
                  ? data.tabs.find((tab) => tab.name === "playlists")
                  : null;
                if (playlistTab?.data) {
-                 const tabResponse = await fetch(
-                   `${baseUrl}/channels/tabs?data=${encodeURIComponent(playlistTab.data)}`,
-                   { signal: controller.signal }
+                 const tabResponse = await fetchCollectionRequest(
+                   `${baseUrl}/channels/tabs?data=${encodeURIComponent(playlistTab.data)}`
                  );
                  if (tabResponse.ok) {
                    const tabData = await tabResponse.json();
@@ -1083,7 +1092,7 @@
              lastError = error;
            }
          }
-         throw lastError || new Error("İçerik detayları şu an alınamadı.");
+         throw lastError || new Error("Oynatma listesi içerikleri şu an alınamadı. Lütfen tekrar deneyin.");
        }
 
        function newestFirst(items) {
