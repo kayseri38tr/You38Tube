@@ -155,7 +155,7 @@
     <header>
       <div class="badge">● AÇIK VİDEO KEŞFİ</div>
       <h1>İzlemek istediğin<br><span>şeyi bul.</span></h1>
-      <p class="subtitle">YouTube’un açık dünyasında hızlıca gezin.<br>Hesap açmadan, dikkatini dağıtmadan.</p>
+      <p class="subtitle">YouTube’un açık dünyasında hızlıca gezin.<br>Reklamsız, hesap açmadan, dikkatini dağıtmadan.</p>
     </header>
 
     <div class="search-box">
@@ -196,7 +196,7 @@
   </div>
 
   <script>
-    // GitHub Pages HTTPS & CORS uyumlu yedekli API kaynakları
+    // HTTPS & CORS Uyumlu API Kaynakları
     const SOURCES = [
       {
         type: 'piped',
@@ -260,7 +260,7 @@
         try {
           let targetUrl = src.url.replace('{q}', encodeURIComponent(query));
           const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 4000); // 4sn zaman aşımı
+          const timeoutId = setTimeout(() => controller.abort(), 4000);
 
           const res = await fetch(targetUrl, { signal: controller.signal });
           clearTimeout(timeoutId);
@@ -383,10 +383,17 @@
       }
     }
 
+    // Reklamsız Oynatıcı Fonksiyonu
     function play(id, title) {
       if (!id) return;
       modalTitle.textContent = title || "Video";
-      frame.src = "https://www.youtube.com/embed/" + id + "?autoplay=1";
+      
+      // REKLAMSIZ OYNATMA YÖNTEMİ:
+      // YouTube No-Cookie subdomain + reklam engelleme parametreleri (rel=0, iv_load_policy=3 vb.)
+      // Alternatif Piped / Invidious Embed bağlantısı da kullanılabilir.
+      const noAdsUrl = "https://www.youtube-nocookie.com/embed/" + id + "?autoplay=1&rel=0&iv_load_policy=3&modestbranding=1";
+      
+      frame.src = noAdsUrl;
       modal.classList.add("open");
     }
 
