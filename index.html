@@ -254,6 +254,27 @@
         text-align: center;
       }
       .empty strong { display: block; margin-bottom: 8px; color: var(--text); font-size: 20px; }
+      .load-more {
+        display: none;
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+        margin: 38px 0 20px;
+        padding-top: 24px;
+        border-top: 1px solid var(--line);
+      }
+      .load-more.visible { display: flex; }
+      .load-more button {
+        padding: 10px 18px;
+        border: 1px solid var(--line);
+        border-radius: 22px;
+        color: var(--text);
+        background: var(--surface);
+        font-weight: 700;
+      }
+      .load-more button:hover { border-color: var(--accent); background: var(--accent); }
+      .load-more button:disabled { cursor: wait; opacity: .6; }
+      .loaded-count { color: var(--muted); font-size: 13px; }
 
       .bottom-nav {
         position: fixed;
@@ -388,6 +409,10 @@
           <strong>Video bulunamadı</strong>
           Arama kelimesini veya kategori filtresini değiştirip tekrar deneyebilirsin.
         </section>
+        <section class="load-more" id="loadMoreBox">
+          <div class="loaded-count" id="loadedCount"></div>
+          <button id="loadMoreButton" type="button">Daha fazla yükle</button>
+        </section>
       </main>
 
       <nav class="bottom-nav" aria-label="Alt menü">
@@ -445,11 +470,16 @@
       ];
 
       const categories = ["Tümü", ...new Set(videos.map((video) => video.category))];
+      let homeVideos = videos.slice().sort(() => Math.random() - 0.5);
       let activeCategory = "Tümü";
       let activeVideo = null;
       let mode = "home";
       let searchTerm = "";
       let remoteVideos = null;
+      let searchPage = 0;
+      let hasMoreSearchResults = false;
+      let searchLoading = false;
+      let remoteQuery = "";
 
       const grid = document.querySelector("#videoGrid");
       const emptyState = document.querySelector("#emptyState");
@@ -471,7 +501,7 @@
 
       function filteredVideos() {
         const term = searchTerm.trim().toLocaleLowerCase("tr-TR");
-        const sourceVideos = remoteVideos || videos;
+        const sourceVideos = remoteVideos || homeVideos;
         return sourceVideos.filter((video) => {
           const categoryMatch = activeCategory === "Tümü" || video.category === activeCategory;
           const text = `${video.title} ${video.channel} ${video.category}`.toLocaleLowerCase("tr-TR");
@@ -497,16 +527,16 @@
         return `${views} görüntüleme`;
       }
 
-      async function fetchSearch(query) {
+      async function fetchSearch(query, page = 1) {
         let lastError;
 
         for (const endpoint of SEARCH_ENDPOINTS) {
           try {
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 4500);
-            const fetchUrl = endpoint.type === "piped"
-              ? `${endpoint.url}?q=${encodeURIComponent(query)}&filter=videos`
-              : `${endpoint.url}?q=${encodeURIComponent(query)}&type=video`;
+             const fetchUrl = endpoint.type === "piped"
+               ? `${endpoint.url}?q=${encodeURIComponent(query)}&filter=videos&page=${page}`
+               : `${endpoint.url}?q=${encodeURIComponent(query)}&type=video&page=${page}`;
 
             const response = await fetch(fetchUrl, { signal: controller.signal });
             clearTimeout(timeoutId);
@@ -543,7 +573,10 @@
       }
 
       function renderCategories() {
-        categoriesEl.innerHTML = categories.map((category) => `
+        const sourceCategories = remoteVideos
+          ? ["Tümü", "Arama"]
+          : categories;
+        categoriesEl.innerHTML = sourceCategories.map((category) => `
           <button class="category ${activeCategory === category ? "active" : ""}" type="button" data-category="${category}">
             ${category}
           </button>
@@ -552,7 +585,9 @@
 
       function renderVideos() {
         const visibleVideos = filteredVideos();
-        resultCount.textContent = `${visibleVideos.length} video`;
+        resultCount.textContent = remoteVideos && remoteQuery
+          ? `${visibleVideos.length} / ${remoteVideos.length} video`
+          : `${visibleVideos.length} video`;
         emptyState.style.display = visibleVideos.length ? "none" : "block";
         grid.innerHTML = visibleVideos.map((video) => `
           <article class="video-card" tabindex="0" role="button" data-video-id="${video.id}" aria-label="${video.title}">
@@ -571,10 +606,22 @@
             </div>
           </article>
         `).join("");
+
+        const loadMoreBox = document.querySelector("#loadMoreBox");
+        const loadedCount = document.querySelector("#loadedCount");
+        const loadMoreButton = document.querySelector("#loadMoreButton");
+        const showLoadMore = Boolean(remoteVideos && remoteQuery && remoteVideos.length);
+        loadMoreBox.classList.toggle("visible", showLoadMore);
+        loadedCount.textContent = showLoadMore
+          ? `${remoteVideos.length} sonuç yüklendi • en fazla 400 video`
+          : "";
+        loadMoreButton.hidden = !hasMoreSearchResults;
+        loadMoreButton.disabled = searchLoading;
+        loadMoreButton.textContent = searchLoading ? "Yükleniyor..." : "Daha fazla yükle";
       }
 
       function openVideo(id) {
-        activeVideo = (remoteVideos || videos).find((video) => video.id === id);
+        activeVideo = (remoteVideos || homeVideos).find((video) => video.id === id);
         if (!activeVideo) return;
         document.querySelector("#inlinePlayer").hidden = false;
         const history = getStored("youtune-history").filter((item) => item !== id);
@@ -607,7 +654,10 @@
          const submitButton = event.currentTarget.querySelector("button");
 
          if (query.length < 2) {
-           remoteVideos = null;
+            remoteVideos = null;
+            searchPage = 0;
+            hasMoreSearchResults = false;
+            remoteQuery = "";
            searchTerm = "";
            mode = "home";
            renderVideos();
@@ -620,9 +670,12 @@
          emptyState.style.display = "block";
 
          try {
-           const results = await fetchSearch(query);
-           remoteVideos = results;
-           searchTerm = "";
+            const results = await fetchSearch(query, 1);
+            remoteVideos = results.slice(0, 20);
+            searchPage = 1;
+            hasMoreSearchResults = results.length >= 20;
+            remoteQuery = query;
+            searchTerm = "";
            activeCategory = "Tümü";
            mode = "home";
            renderCategories();
@@ -636,6 +689,29 @@
            submitButton.disabled = false;
          }
       });
+
+       document.querySelector("#loadMoreButton").addEventListener("click", async () => {
+         if (!remoteQuery || !hasMoreSearchResults || searchLoading || !remoteVideos || remoteVideos.length >= 400) return;
+         searchLoading = true;
+         renderVideos();
+
+         try {
+           const results = await fetchSearch(remoteQuery, searchPage + 1);
+           const nextVideos = [...remoteVideos, ...results];
+           remoteVideos = Array.from(new Map(nextVideos.map((video) => [video.id, video])).values()).slice(0, 400);
+           searchPage += 1;
+           hasMoreSearchResults = results.length >= 20 && remoteVideos.length < 400;
+           renderCategories();
+           renderVideos();
+         } catch (error) {
+           hasMoreSearchResults = false;
+           resultCount.textContent = "Daha fazla sonuç alınamadı";
+           document.querySelector("#loadedCount").textContent = error.message || "Lütfen tekrar deneyin.";
+         } finally {
+           searchLoading = false;
+           renderVideos();
+         }
+       });
       categoriesEl.addEventListener("click", (event) => {
         const button = event.target.closest("[data-category]");
         if (!button) return;
