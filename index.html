@@ -312,7 +312,20 @@
         .channel-avatar { display: none; }
         .video-title { font-size: 13px; }
         .video-meta { font-size: 11px; }
-        .bottom-nav { gap: 18px; justify-content: space-around; }
+        .bottom-nav {
+          gap: 4px;
+          justify-content: space-around;
+          padding: 6px 4px;
+        }
+        .nav-button {
+          min-width: 0;
+          flex: 1 1 0;
+          padding: 0 2px;
+          font-size: 10px;
+          line-height: 1.15;
+          white-space: normal;
+        }
+        .nav-button span { font-size: 18px; }
       }
     </style>
   </head>
@@ -501,7 +514,6 @@
 
                 try {
                   const response = await fetch(fetchUrl, { signal: controller.signal });
-                  clearTimeout(timeoutId);
                   if (!response.ok) break;
 
                   const data = await response.json();
@@ -538,6 +550,9 @@
 
                   continuation = data.nextpage || data.continuation || "";
                   if (endpoint.type === "piped" && !continuation) break;
+                } catch (error) {
+                  lastError = error;
+                  break;
                 } finally {
                   clearTimeout(timeoutId);
                 }
