@@ -700,6 +700,7 @@
        let collectionVideos = [];
        let collectionPlaylists = [];
        let collectionLoading = false;
+       let collectionFallbackUrl = "";
 
       const grid = document.querySelector("#videoGrid");
       const emptyState = document.querySelector("#emptyState");
@@ -999,18 +1000,25 @@
          if (!id) throw new Error("Bu içerik için geçerli bir kimlik bulunamadı.");
          let lastError;
          async function fetchCollectionRequest(url) {
-           const controller = new AbortController();
-           const timeoutId = setTimeout(() => controller.abort(), 20000);
-           try {
-             return await fetch(url, { signal: controller.signal });
-           } catch (error) {
-             if (error?.name === "AbortError") {
-               throw new Error("Oynatma listesi servisi zaman aşımına uğradı. Lütfen tekrar deneyin.");
+           const requestUrls = [
+             url,
+             `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+             `https://corsproxy.io/?url=${encodeURIComponent(url)}`
+           ];
+           let requestError;
+           for (const requestUrl of requestUrls) {
+             const controller = new AbortController();
+             const timeoutId = setTimeout(() => controller.abort(), 12000);
+             try {
+               const response = await fetch(requestUrl, { signal: controller.signal });
+               if (response.ok) return response;
+             } catch (error) {
+               requestError = error;
+             } finally {
+               clearTimeout(timeoutId);
              }
-             throw error;
-           } finally {
-             clearTimeout(timeoutId);
            }
+           throw requestError || new Error("İçerik servisine ulaşılamadı.");
          }
          for (const endpoint of SEARCH_ENDPOINTS) {
            try {
@@ -1092,7 +1100,13 @@
              lastError = error;
            }
          }
-         throw lastError || new Error("Oynatma listesi içerikleri şu an alınamadı. Lütfen tekrar deneyin.");
+         return {
+           videos: [],
+           playlists: [],
+           fallbackUrl: kind === "playlist"
+             ? `https://www.youtube.com/playlist?list=${encodeURIComponent(id)}`
+             : `https://www.youtube.com/channel/${encodeURIComponent(id)}`
+         };
        }
 
        function newestFirst(items) {
@@ -1189,7 +1203,16 @@
            emptyState.style.display = "block";
          } else {
            resultCount.textContent = `${collectionVideos.length} video • yeniden eskiye`;
-           emptyState.style.display = collectionVideos.length ? "none" : "block";
+            if (collectionVideos.length) {
+              emptyState.style.display = "none";
+            } else if (collectionFallbackUrl) {
+              emptyState.innerHTML = `<strong>İçerik servisi şu an yanıt vermiyor</strong>
+                Videoları görmek için oynatma listesini YouTube'da açabilirsin.
+                <br><br><a class="collection-back" href="${collectionFallbackUrl}" target="_blank" rel="noopener noreferrer">YouTube'da aç ↗</a>`;
+              emptyState.style.display = "block";
+            } else {
+              emptyState.style.display = "block";
+            }
            grid.innerHTML = newestFirst(collectionVideos).map((video) => `
              <article class="video-card" tabindex="0" role="button" data-video-id="${video.id}" aria-label="${video.title}">
                <div class="thumbnail-wrap">
@@ -1349,13 +1372,25 @@
          const query = searchInput.value.trim();
          const submitButton = event.currentTarget.querySelector("button");
 
+         // Yeni arama başladığında açık olan kanal/oynatma listesi görünümünü
+         // hemen kapat; eski koleksiyon yeni sonuçların üzerinde kalmasın.
+         activeCollection = null;
+         collectionParent = null;
+         collectionVideos = [];
+         collectionPlaylists = [];
+         collectionLoading = false;
+         activeSearchType = "video";
+         remoteVideos = null;
+         remotePlaylists = [];
+         remoteChannels = [];
+         remoteSearchResults = [];
+         remoteQuery = "";
+         collectionPanel.hidden = true;
+         grid.innerHTML = "";
+         renderCategories();
+         renderSearchTypes();
+
          if (query.length < 2) {
-            remoteVideos = null;
-            remotePlaylists = [];
-            remoteChannels = [];
-            remoteSearchResults = [];
-            activeCollection = null;
-            collectionParent = null;
             searchPage = 0;
             hasMoreSearchResults = false;
             remoteQuery = "";
@@ -1461,6 +1496,7 @@
          collectionParent = parent;
          collectionVideos = [];
          collectionPlaylists = [];
+          collectionFallbackUrl = "";
          collectionLoading = true;
          renderCategories();
          renderSearchTypes();
@@ -1469,6 +1505,7 @@
            const result = await fetchCollection(kind, entity);
            collectionVideos = newestFirst(result.videos);
            collectionPlaylists = result.playlists;
+            collectionFallbackUrl = result.fallbackUrl || "";
          } catch (error) {
            emptyState.innerHTML = `<strong>İçerik alınamadı</strong>${error.message || "Lütfen tekrar deneyin."}`;
            emptyState.style.display = "block";
