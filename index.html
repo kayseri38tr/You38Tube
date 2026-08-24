@@ -225,6 +225,15 @@
         color: white;
         background: var(--accent-soft);
       }
+      .collection-open {
+        margin-top: 8px;
+        padding: 6px 10px;
+        border: 1px solid var(--accent);
+        border-radius: 16px;
+        color: white;
+        background: var(--accent-soft);
+        font-size: 12px;
+      }
       .empty {
         display: none;
         padding: 90px 20px;
@@ -386,8 +395,8 @@
 
       // Arama servisleri: biri çalışmazsa sıradaki otomatik olarak denenir.
       const SEARCH_ENDPOINTS = [
-        { type: "piped", url: "https://pipedapi.kavin.rocks/search" },
         { type: "piped", url: "https://api.piped.private.coffee/search" },
+        { type: "piped", url: "https://pipedapi.kavin.rocks/search" },
         { type: "invidious", url: "https://invidious.nerdvpn.de/api/v1/search" },
         { type: "invidious", url: "https://inv.tux.pizza/api/v1/search" }
       ];
@@ -490,66 +499,56 @@
 
       async function fetchSearch(query) {
         let lastError;
-        const requestedTypes = [
-          { piped: "videos", invidious: "video" },
-          { piped: "channels", invidious: "channel" },
-          { piped: "playlists", invidious: "playlist" }
-        ];
 
         for (const endpoint of SEARCH_ENDPOINTS) {
           try {
             const allResults = [];
+            const searchTypes = endpoint.type === "piped"
+              ? [{ value: "all", pages: 1 }, { value: "videos", pages: 10 }, { value: "channels", pages: 1 }, { value: "playlists", pages: 1 }]
+              : [{ value: "video", pages: 10 }, { value: "channel", pages: 1 }, { value: "playlist", pages: 1 }];
 
-            for (const resultType of requestedTypes) {
+            for (const searchType of searchTypes) {
               let continuation = "";
-
-              for (let page = 1; page <= 10; page++) {
+              for (let page = 1; page <= searchType.pages; page++) {
                 const controller = new AbortController();
                 const timeoutId = setTimeout(() => controller.abort(), 4500);
-                const type = endpoint.type === "piped" ? resultType.piped : resultType.invidious;
                 const pageParam = endpoint.type === "piped"
                   ? (continuation ? `&continuation=${encodeURIComponent(continuation)}` : "")
                   : `&page=${page}`;
-                const fetchUrl = `${endpoint.url}?q=${encodeURIComponent(query)}&${endpoint.type === "piped" ? "filter" : "type"}=${type}${pageParam}`;
+                const typeParam = endpoint.type === "piped" ? `filter=${searchType.value}` : `type=${searchType.value}`;
+                const fetchUrl = `${endpoint.url}?q=${encodeURIComponent(query)}&${typeParam}${pageParam}`;
 
                 try {
                   const response = await fetch(fetchUrl, { signal: controller.signal });
                   if (!response.ok) break;
-
                   const data = await response.json();
                   const rawItems = Array.isArray(data) ? data : (data.items || []);
                   if (!rawItems.length) break;
 
                   rawItems.forEach((item) => {
+                    const itemType = item.type === "channel" ? "channel" : item.type === "playlist"
+                      ? "playlist" : (searchType.value === "channel" ? "channel" : searchType.value === "playlist" ? "playlist" : "video");
                     let id = item.videoId || item.channelId || item.playlistId || "";
                     if (!id && item.url) {
-                      const match = item.url.match(/[?&](?:v|list)=([^&]+)/);
-                      id = match ? match[1] : item.url.replace(/^\/(?:watch|playlist)\?[^=]+=/, "").split("&")[0];
+                      const match = item.url.match(/\/(?:watch\?v=|playlist\?list=|channel\/)([^&]+)/);
+                      id = match ? match[1] : "";
                     }
-
-                    const normalizedType = type === "videos" || type === "video"
-                      ? "video"
-                      : type === "channels" || type === "channel" ? "channel" : "playlist";
-
-                    if (id) {
-                      allResults.push({
-                        id,
-                        resultType: normalizedType,
-                        title: item.title || item.name || "Başlıksız",
-                        channel: item.uploaderName || item.author || item.owner || item.subscribers || "Kanal",
-                        views: normalizedType === "video"
-                          ? formatViews(item.views ?? item.viewCount)
-                          : (item.videoCount ? `${item.videoCount} video` : ""),
-                        age: item.uploadedDate || item.publishedText || item.description || "",
-                        thumbnail: item.thumbnail || item.thumbnailUrl || item.avatarUrl || "",
-                        duration: formatDuration(item.duration ?? item.lengthSeconds),
-                        category: normalizedType === "playlist" ? "Oynatma Listesi" : normalizedType === "channel" ? "Kanal" : "Arama"
-                      });
-                    }
+                    if (!id) return;
+                    allResults.push({
+                      id,
+                      resultType: itemType,
+                      title: item.title || item.name || "Başlıksız",
+                      channel: item.uploaderName || item.author || item.owner || item.uploader || item.subscribers || "Kanal",
+                      views: itemType === "video" ? formatViews(item.views ?? item.viewCount) : (item.videos ? `${item.videos} video` : ""),
+                      age: item.uploadedDate || item.publishedText || "",
+                      thumbnail: item.thumbnail || item.thumbnailUrl || item.avatarUrl || "",
+                      duration: formatDuration(item.duration ?? item.lengthSeconds),
+                      category: itemType === "playlist" ? "Oynatma Listesi" : itemType === "channel" ? "Kanal" : "Arama"
+                    });
                   });
 
                   continuation = data.nextpage || data.continuation || "";
-                  if (endpoint.type === "piped" && !continuation) break;
+                  if (endpoint.type === "piped" && (!continuation || searchType.pages === 1)) break;
                 } catch (error) {
                   lastError = error;
                   break;
@@ -600,7 +599,9 @@
                 ${video.resultType && video.resultType !== "video" ? `<span class="video-type">${video.resultType === "playlist" ? "Oynatma listesi" : "Kanal"}</span>` : ""}
                 <h2 class="video-title">${video.title}</h2>
                 <p class="video-meta">${video.channel}<br>${video.views} • ${video.age}</p>
+                ${video.resultType === "channel" ? `<button class="collection-open" type="button" data-collection-id="${video.id}" data-collection-type="channel" data-collection-title="${video.title}">Videolarını göster</button>` : ""}
                 ${video.resultType === "playlist" ? `<button class="playlist-save ${isPlaylistSaved(video.id) ? "saved" : ""}" type="button" data-playlist-id="${video.id}">${isPlaylistSaved(video.id) ? "✓ Kaydedildi" : "＋ Oynatma listesini kaydet"}</button>` : ""}
+                ${video.resultType === "playlist" ? `<button class="collection-open" type="button" data-collection-id="${video.id}" data-collection-type="playlist" data-collection-title="${video.title}">Liste videolarını göster</button>` : ""}
               </div>
             </div>
           </article>
@@ -644,6 +645,60 @@
           setStored("youtune-playlists", [playlist, ...saved]);
         }
         renderVideos();
+      }
+
+      async function openCollection(id, type, title) {
+        const baseUrl = "https://api.piped.private.coffee";
+        const detailPath = type === "playlist" ? `/playlists/${id}` : `/channel/${id}`;
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 7000);
+        const buttonText = type === "playlist" ? "Oynatma listesi" : "Kanal";
+
+        resultCount.textContent = `${buttonText} yükleniyor...`;
+        emptyState.innerHTML = `<strong>${buttonText} yükleniyor...</strong>Videolar getiriliyor.`;
+        emptyState.style.display = "block";
+
+        try {
+          const response = await fetch(`${baseUrl}${detailPath}`, { signal: controller.signal });
+          const data = response.ok ? await response.json() : {};
+          let collectionVideos = (data.relatedStreams || data.items || [])
+            .filter((item) => item.type === "stream" || item.videoId || item.url)
+            .map((item) => {
+              const match = (item.url || "").match(/[?&]v=([^&]+)/);
+              return {
+                id: item.videoId || (match ? match[1] : ""),
+                resultType: "video",
+                title: item.title || "Başlıksız",
+                channel: item.uploaderName || item.author || title,
+                views: formatViews(item.views ?? item.viewCount),
+                age: item.uploadedDate || item.publishedText || "",
+                thumbnail: item.thumbnail || "",
+                duration: formatDuration(item.duration ?? item.lengthSeconds),
+                category: "Arama"
+              };
+            })
+            .filter((item) => item.id);
+
+          // Bazı sunucular koleksiyon ayrıntısını vermediğinde başlıkla güvenli arama yapılır.
+          if (!collectionVideos.length) {
+            collectionVideos = (await fetchSearch(title)).filter((item) => item.resultType === "video");
+          }
+          if (!collectionVideos.length) throw new Error("Bu koleksiyonda gösterilecek video bulunamadı.");
+
+          remoteVideos = collectionVideos;
+          searchTerm = "";
+          activeCategory = "Tümü";
+          mode = "home";
+          document.querySelector("#pageTitle").textContent = `"${title}" videoları`;
+          renderCategories();
+          renderVideos();
+        } catch (error) {
+          emptyState.innerHTML = `<strong>${buttonText} açılamadı</strong>${error.message || "Lütfen tekrar deneyin."}`;
+          emptyState.style.display = "block";
+          resultCount.textContent = "İçerik alınamadı";
+        } finally {
+          clearTimeout(timeoutId);
+        }
       }
 
       function setMode(nextMode) {
@@ -703,6 +758,13 @@
         renderVideos();
       });
       grid.addEventListener("click", (event) => {
+         const collectionButton = event.target.closest("[data-collection-id]");
+         if (collectionButton) {
+           event.preventDefault();
+           event.stopPropagation();
+           openCollection(collectionButton.dataset.collectionId, collectionButton.dataset.collectionType, collectionButton.dataset.collectionTitle);
+           return;
+         }
          const playlistButton = event.target.closest("[data-playlist-id]");
          if (playlistButton) {
            event.preventDefault();
