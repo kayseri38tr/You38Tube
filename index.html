@@ -199,6 +199,29 @@
         background: #292929;
       }
       .thumbnail-wrap img { width: 100%; height: 100%; display: block; object-fit: cover; }
+       .card-favorite {
+         position: absolute;
+         top: 8px;
+         left: 8px;
+         z-index: 1;
+         display: grid;
+         place-items: center;
+         width: 34px;
+         height: 34px;
+         padding: 0;
+         border: 1px solid rgba(255, 255, 255, .22);
+         border-radius: 50%;
+         color: white;
+         background: rgba(0, 0, 0, .72);
+         font-size: 19px;
+         line-height: 1;
+         transition: transform .2s ease, color .2s ease, background .2s ease;
+       }
+       .card-favorite:hover, .card-favorite.selected {
+         color: white;
+         background: var(--accent);
+         transform: scale(1.08);
+       }
       .duration {
         position: absolute;
         right: 8px;
@@ -505,10 +528,15 @@
        let homeVideos = videos.slice();
        let homeIsTrending = false;
        let homeLoading = true;
-       for (let index = homeVideos.length - 1; index > 0; index -= 1) {
-         const randomIndex = Math.floor(Math.random() * (index + 1));
-         [homeVideos[index], homeVideos[randomIndex]] = [homeVideos[randomIndex], homeVideos[index]];
+       function shuffleVideos(videoList) {
+         const shuffled = videoList.slice();
+         for (let index = shuffled.length - 1; index > 0; index -= 1) {
+           const randomIndex = Math.floor(Math.random() * (index + 1));
+           [shuffled[index], shuffled[randomIndex]] = [shuffled[randomIndex], shuffled[index]];
+         }
+         return shuffled;
        }
+       homeVideos = shuffleVideos(homeVideos);
       let activeCategory = "Tümü";
       let activeVideo = null;
       let mode = "home";
@@ -537,14 +565,38 @@
       }
       function isFavorite(id) { return getStored("youtune-favorites").includes(id); }
 
+       function getFavoriteVideos() {
+         const favoriteIds = getStored("youtune-favorites");
+         const storedVideos = getStored("youtune-favorite-videos");
+         const availableVideos = [...storedVideos, ...homeVideos, ...videos];
+         const videosById = new Map(availableVideos.map((video) => [video.id, video]));
+         return favoriteIds.map((id) => videosById.get(id)).filter(Boolean);
+       }
+
+       function toggleFavorite(video) {
+         const favoriteIds = getStored("youtune-favorites");
+         const favoriteVideos = getStored("youtune-favorite-videos");
+         const alreadyFavorite = favoriteIds.includes(video.id);
+         const nextIds = alreadyFavorite
+           ? favoriteIds.filter((id) => id !== video.id)
+           : [video.id, ...favoriteIds];
+         const nextVideos = alreadyFavorite
+           ? favoriteVideos.filter((item) => item.id !== video.id)
+           : [video, ...favoriteVideos.filter((item) => item.id !== video.id)];
+         setStored("youtune-favorites", nextIds);
+         setStored("youtune-favorite-videos", nextVideos);
+       }
+
       function filteredVideos() {
         const term = searchTerm.trim().toLocaleLowerCase("tr-TR");
-        const sourceVideos = remoteVideos || homeVideos;
+         const sourceVideos = mode === "favorites"
+           ? getFavoriteVideos()
+           : remoteVideos || homeVideos;
         return sourceVideos.filter((video) => {
           const categoryMatch = activeCategory === "Tümü" || video.category === activeCategory;
           const text = `${video.title} ${video.channel} ${video.category}`.toLocaleLowerCase("tr-TR");
           const searchMatch = !term || text.includes(term);
-          const modeMatch = mode === "home" || (mode === "favorites" && isFavorite(video.id)) || getStored("youtune-history").includes(video.id);
+           const modeMatch = mode === "home" || mode === "favorites" || getStored("youtune-history").includes(video.id);
           return categoryMatch && searchMatch && modeMatch;
         });
       }
@@ -652,7 +704,9 @@
       }
 
       function renderCategories() {
-        const sourceCategories = remoteVideos
+         const sourceCategories = mode === "favorites"
+           ? ["Tümü"]
+           : remoteVideos
           ? ["Tümü", "Arama"]
            : homeIsTrending
              ? ["Tümü", "Trend"]
@@ -680,13 +734,17 @@
              : isHomeList && visibleVideos.length < allVisibleVideos.length
                ? `${visibleVideos.length} / ${allVisibleVideos.length} video`
                : `${visibleVideos.length} video`;
-           emptyState.style.display = visibleVideos.length ? "none" : "block";
+           emptyState.style.display = visibleVideos.length || mode === "favorites" ? "none" : "block";
          }
         grid.innerHTML = visibleVideos.map((video) => `
           <article class="video-card" tabindex="0" role="button" data-video-id="${video.id}" aria-label="${video.title}">
             <div class="thumbnail-wrap">
               <img src="https://i.ytimg.com/vi/${video.id}/hq720.jpg" alt="" loading="lazy"
                 onerror="this.src='https://i.ytimg.com/vi/${video.id}/hqdefault.jpg'" />
+               <button class="card-favorite ${isFavorite(video.id) ? "selected" : ""}" type="button"
+                 data-favorite-id="${video.id}" aria-label="${isFavorite(video.id) ? "Favorilerden çıkar" : "Favorilere ekle"}">
+                 ${isFavorite(video.id) ? "♥" : "♡"}
+               </button>
               <span class="play-overlay">▶</span>
               <span class="duration">${video.duration}</span>
             </div>
@@ -704,7 +762,7 @@
         const loadedCount = document.querySelector("#loadedCount");
         const loadMoreButton = document.querySelector("#loadMoreButton");
          const showHomeLoadMore = Boolean(isHomeList && allVisibleVideos.length);
-         const showSearchLoadMore = Boolean(remoteVideos && remoteQuery && remoteVideos.length);
+         const showSearchLoadMore = Boolean(mode === "home" && remoteVideos && remoteQuery && remoteVideos.length);
          const showLoadMore = showHomeLoadMore || showSearchLoadMore;
         loadMoreBox.classList.toggle("visible", showLoadMore);
          loadedCount.textContent = showHomeLoadMore
@@ -725,7 +783,7 @@
          renderVideos();
          try {
            const results = await fetchTrending();
-           homeVideos = results;
+           homeVideos = shuffleVideos(results);
            homeIsTrending = true;
            homeVisibleCount = HOME_PAGE_SIZE;
            activeCategory = "Tümü";
@@ -762,8 +820,10 @@
 
       function setMode(nextMode) {
         mode = nextMode;
+         if (nextMode === "favorites") activeCategory = "Tümü";
         document.querySelectorAll(".nav-button").forEach((button) => button.classList.remove("active"));
         document.querySelector(`#${nextMode === "home" ? "homeButton" : nextMode === "favorites" ? "favoritesButton" : "historyButton"}`).classList.add("active");
+         renderCategories();
         renderVideos();
       }
 
@@ -852,6 +912,20 @@
         renderVideos();
       });
       grid.addEventListener("click", (event) => {
+         const favoriteControl = event.target.closest("[data-favorite-id]");
+         if (favoriteControl) {
+           event.stopPropagation();
+           const video = (remoteVideos || homeVideos).find((item) => item.id === favoriteControl.dataset.favoriteId)
+             || getFavoriteVideos().find((item) => item.id === favoriteControl.dataset.favoriteId);
+           if (video) {
+             toggleFavorite(video);
+             favoriteControl.classList.toggle("selected", isFavorite(video.id));
+             favoriteControl.textContent = isFavorite(video.id) ? "♥" : "♡";
+             favoriteControl.setAttribute("aria-label", isFavorite(video.id) ? "Favorilerden çıkar" : "Favorilere ekle");
+             if (mode === "favorites") renderVideos();
+           }
+           return;
+         }
         const card = event.target.closest("[data-video-id]");
         if (card) openVideo(card.dataset.videoId);
       });
@@ -862,12 +936,10 @@
       });
       favoriteButton.addEventListener("click", () => {
         if (!activeVideo) return;
-        const favorites = getStored("youtune-favorites");
-        const next = isFavorite(activeVideo.id) ? favorites.filter((id) => id !== activeVideo.id) : [activeVideo.id, ...favorites];
-        setStored("youtune-favorites", next);
+         toggleFavorite(activeVideo);
         favoriteButton.textContent = isFavorite(activeVideo.id) ? "♥ Favorilerden çıkar" : "♡ Favorile";
         favoriteButton.classList.toggle("selected", isFavorite(activeVideo.id));
-        if (mode === "favorites") renderVideos();
+         renderVideos();
       });
       document.querySelector("#shareButton").addEventListener("click", async () => {
         if (!activeVideo) return;
