@@ -196,11 +196,24 @@
   </div>
 
   <script>
-    // Piped API Sunucuları (Biri yanıt vermezse diğeri devreye girer)
-    const PIPED_NODES = [
-      "https://pipedapi.kavin.rocks",
-      "https://api.piped.private.coffee",
-      "https://pipedapi.mha.fi"
+    // GitHub Pages HTTPS & CORS uyumlu yedekli API kaynakları
+    const SOURCES = [
+      {
+        type: 'piped',
+        url: 'https://pipedapi.kavin.rocks/search?q={q}&filter=all'
+      },
+      {
+        type: 'piped',
+        url: 'https://api.piped.private.coffee/search?q={q}&filter=all'
+      },
+      {
+        type: 'invidious',
+        url: 'https://invidious.nerdvpn.de/api/v1/search?q={q}&type=video'
+      },
+      {
+        type: 'proxy',
+        url: 'https://api.allorigins.win/get?url=' + encodeURIComponent('https://pipedapi.kavin.rocks/search?q={q}&filter=all')
+      }
     ];
 
     const qInput = document.getElementById("q");
@@ -242,21 +255,59 @@
       statusEl.style.display = text ? "block" : "none";
     }
 
-    // Yedekli API İsteği Fonksiyonu
-    async function fetchFromPiped(query) {
-      let lastError;
-      for (const node of PIPED_NODES) {
+    async function fetchResults(query) {
+      for (const src of SOURCES) {
         try {
-          const url = `${node}/search?q=${encodeURIComponent(query)}&filter=all`;
-          const res = await fetch(url);
-          if (res.ok) {
-            return await res.json();
+          let targetUrl = src.url.replace('{q}', encodeURIComponent(query));
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 4000); // 4sn zaman aşımı
+
+          const res = await fetch(targetUrl, { signal: controller.signal });
+          clearTimeout(timeoutId);
+
+          if (!res.ok) continue;
+
+          let rawData = await res.json();
+          if (src.type === 'proxy') {
+            rawData = JSON.parse(rawData.contents);
           }
-        } catch (err) {
-          lastError = err;
+
+          let items = [];
+
+          if (src.type === 'piped' || (src.type === 'proxy' && rawData.items)) {
+            const list = rawData.items || [];
+            items = list.filter(v => v.type === 'stream').map(v => {
+              const videoId = v.url ? v.url.replace("/watch?v=", "") : "";
+              return {
+                id: videoId,
+                title: v.title,
+                channel: v.uploaderName,
+                views: formatViews(v.views),
+                publishedAt: v.uploadedDate || "",
+                duration: formatDuration(v.duration),
+                thumbnail: v.thumbnail || `https://i.ytimg.com/vi/${videoId}/mqdefault.jpg`
+              };
+            });
+          } else if (src.type === 'invidious') {
+            const list = Array.isArray(rawData) ? rawData : [];
+            items = list.map(v => ({
+              id: v.videoId,
+              title: v.title,
+              channel: v.author,
+              views: formatViews(v.viewCount),
+              publishedAt: v.publishedText || "",
+              duration: formatDuration(v.lengthSeconds),
+              thumbnail: `https://i.ytimg.com/vi/${v.videoId}/mqdefault.jpg`
+            }));
+          }
+
+          items = items.filter(v => v.id);
+          if (items.length > 0) return items;
+        } catch (e) {
+          console.warn("Kaynak hatası, sonraki deneniyor:", e);
         }
       }
-      throw lastError || new Error("Hiçbir API sunucusuna ulaşılamadı.");
+      throw new Error("Tüm servisler meşgul veya ulaşılamıyor. Lütfen tekrar deneyin.");
     }
 
     async function search() {
@@ -275,24 +326,7 @@
       countEl.textContent = "Yükleniyor...";
 
       try {
-        const data = await fetchFromPiped(query);
-        const items = Array.isArray(data.items) ? data.items : [];
-        
-        // Piped verisini uygun formata dönüştür ve sadece videoları al
-        const results = items
-          .filter(v => v.type === "stream")
-          .map(v => {
-            const videoId = v.url ? v.url.replace("/watch?v=", "") : "";
-            return {
-              id: videoId,
-              title: v.title,
-              channel: v.uploaderName,
-              views: formatViews(v.views),
-              publishedAt: v.uploadedDate || "",
-              duration: formatDuration(v.duration),
-              thumbnail: v.thumbnail || `https://i.ytimg.com/vi/${videoId}/mqdefault.jpg`
-            };
-          }).filter(v => v.id);
+        const results = await fetchResults(query);
 
         if (results.length === 0) {
           setStatus("Sonuç bulunamadı. Başka bir kelime dene.", "");
@@ -305,7 +339,7 @@
       } catch (err) {
         console.error(err);
         setStatus(
-          "Arama yapılamadı.<br><small>Hata: " + esc(err.message) + "</small>",
+          "Arama yapılamadı.<br><small>" + esc(err.message) + "</small>",
           "error"
         );
         countEl.textContent = "Hata";
